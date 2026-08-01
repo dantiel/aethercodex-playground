@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fractal Llama Odyssey - Fixed</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(to bottom, #1a1a2e, #16213e);
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        canvas {
+            display: block;
+            cursor: pointer;
+        }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 8px;
+            color: white;
+            border: 1px solid #4a4a8a;
+            z-index: 100;
+        }
+        .stat {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        .fractal-indicator {
+            color: #8a8aff;
+            font-weight: bold;
+        }
+        h1 {
+            color: #8a8aff;
+            margin: 0 0 10px 0;
+            font-size: 18px;
+        }
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 8px;
+            color: white;
+            border: 1px solid #4a4a8a;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="ui">
+        <h1>Fractal Llama Odyssey</h1>
+        <div class="stat">Height: <span id="height">0</span>m</div>
+        <div class="stat">Score: <span id="score">0</span></div>
+        <div class="stat">Fractal: <span id="fractalType" class="fractal-indicator">Sierpinski</span></div>
+        <div class="stat">Spit: <span id="spitCount">3</span></div>
+    </div>
+    
+    <div id="controls">
+        <strong>Controls:</strong><br>
+        WASD/Arrows: Move<br>
+        Space: Jump<br>
+        F: Spit<br>
+        Touch: Swipe to move
+    </div>
+
+    <script>
+// Fractal Llama Odyssey - Completely Fixed Version
+class FractalLlamaGame {
+    constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        
+        // Set canvas size
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        
+        // Game state
+        this.gameRunning = true;
+        this.score = 0;
+        this.height = 0;
+        this.worldSpeed = 1.0;
+        this.spitCount = 3;
+        this.currentFractal = 'sierpinski';
+        
+        // Camera
+        this.cameraX = 0;
+        this.cameraY = 0;
+        
+        // Llama properties
+        this.llama = {
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2,
+            width: 40,
+            height: 60,
+            velocityX: 0,
+            velocityY: 0,
+            isJumping: false,
+            facingRight: true,
+            animationFrame: 0
+        };
+        
+        // Spit projectiles
+        this.spits = [];
+        
+        // Collectibles
+        this.collectibles = [];
+        this.obstacles = [];
+        
+        // Generate initial terrain
+        this.terrain = [];
+        this.generateInitialTerrain();
+        
+        // Input handling
+        this.keys = {};
+        this.setupInput();
+        
+        // Start game loop
+        this.lastTime = 0;
+        this.gameLoop();
+    }
+    
+    generateInitialTerrain() {
+        this.terrain = [];
+        
+        // Generate multiple terrain chunks
+        for (let chunk = 0; chunk < 8; chunk++) {
+            const chunkX = chunk * 400;
+            const terrainData = this.generateFractalTerrain(chunkX);
+            this.terrain.push(...terrainData);
+        }
+        
+        // Add some collectibles
+        this.generateCollectibles();
+    }
+    
+    generateFractalTerrain(startX) {
+        const terrain = [];
+        const fractalTypes = ['sierpinski', 'perlin', 'mandelbrot', 'koch', 'dragon'];
+        const fractalType = fractalTypes[Math.floor(Math.random() * fractalTypes.length)];
+        this.currentFractal = fractalType;
+        
+        switch(fractalType) {
+            case 'sierpinski':
+                // Sierpinski triangle - triangular gaps pattern
+                for (let i = 0; i < 25; i++) {
+                    const x = startX + i * 70;
+                    // Triangular pattern: every third platform is missing
+                    if (i % 3 !== 0) {
+                        const y = this.canvas.height - 120 - ((i % 3) * 35);
+                        const width = 60 + Math.random() * 20;
+                        const height = 25 + Math.random() * 15;
+                        terrain.push({ x, y, width, height, type: 'platform', fractal: 'sierpinski' });
+                    }
+                }
+                break;
+                
+            case 'perlin':
+                // Perlin noise - smooth organic hills
+                let lastY = this.canvas.height - 140;
+                for (let i = 0; i < 30; i++) {
+                    const x = startX + i * 35;
+                    // Smooth height changes
+                    const yChange = (Math.random() - 0.5) * 25;
+                    lastY = Math.max(100, Math.min(this.canvas.height - 80, lastY + yChange));
+                    const width = 45 + Math.random() * 20;
+                    const height = 20 + Math.random() * 10;
+                    terrain.push({ x, y: lastY, width, height, type: 'platform', fractal: 'perlin' });
+                }
+                break;
+                
+            case 'mandelbrot':
+                // Mandelbrot set - complex, detailed patterns
+                for (let i = 0; i < 20; i++) {
+                    const x = startX + i * 45;
+                    // Complex wave pattern
+                    const y = this.canvas.height - 160 + Math.sin(i * 0.7) * 60 + Math.cos(i * 0.4) * 30;
+                    const width = 35 + Math.random() * 15;
+                    const height = 18 + Math.random() * 12;
+                    
+                    // Create interesting gaps
+                    if (Math.random() > 0.15) {
+                        terrain.push({ x, y, width, height, type: 'platform', fractal: 'mandelbrot' });
+                    }
+                }
+                break;
+                
+            case 'koch':
+                // Koch snowflake - spiky, crystalline patterns
+                for (let i = 0; i < 15; i++) {
+                    const x = startX + i * 85;
+                    // Spiky alternating pattern
+                    const y = this.canvas.height - 180 + (Math.sin(i * 1.5) * 70) + ((i % 3) * 25);
+                    const width = 50 + Math.random() * 25;
+                    const height = 22 + Math.random() * 13;
+                    
+                    // Larger gaps for spiky feel - Koch snowflake pattern
+                    if (i % 3 !== 0) {
+                        terrain.push({ x, y, width, height, type: 'platform', fractal: 'koch' });
+                    }
+                }
+                break;
+                
+            case 'dragon':
+                // Dragon curve - twisting, maze-like patterns
+                let direction = 1;
+                let currentY = this.canvas.height - 150;
+                for (let i = 0; i < 22; i++) {
+                    const x = startX + i * 32;
+                    
+                    // Dragon curve alternating pattern - more dramatic
+                    if (i % 3 === 0) {
+                        direction *= -1;
+                    }
+                    currentY += direction * (20 + Math.random() * 15);
+                    currentY = Math.max(80, Math.min(this.canvas.height - 80, currentY));
+                    
+                    const width = 35 + Math.random() * 15;
+                    const height = 18 + Math.random() * 8;
+                    terrain.push({ x, y: currentY, width, height, type: 'platform', fractal: 'dragon' });
+                }
+                break;
+        }
+        
+        return terrain;
+    }
+    
+    generateCollectibles() {
+        this.collectibles = [];
+        this.obstacles = [];
+        
+        // Add wool bundles randomly on platforms
+        this.terrain.forEach(platform => {
+            if (Math.random() < 0.25) {
+                this.collectibles.push({
+                    x: platform.x + platform.width / 2,
+                    y: platform.y - 20,
+                    type: 'wool',
+                    collected: false
+                });
+            }
+            
+            // Add obstacles that require spit to clear
+            if (Math.random() < 0.2) {
+                this.obstacles.push({
+                    x: platform.x + platform.width / 2,
+                    y: platform.y - 15,
+                    width: 25,
+                    height: 25,
+                    type: 'rock',
+                    destroyed: false
+                });
+            }
+        });
+    }
+    
+    setupInput() {
+        document.addEventListener('keydown', (e) => {
+            this.keys[e.key.toLowerCase()] = true;
+            
+            // Spit with F key
+            if (e.key.toLowerCase() === 'f' && this.spitCount > 0) {
+                this.spit();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            this.keys[e.key.toLowerCase()] = false;
+        });
+        
+        // Touch controls
+        this.canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            this.touchStartX = e.touches[0].clientX;
+            this.touchStartY = e.touches[0].clientY;
+        });
+        
+        this.canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!this.touchStartX || !this.touchStartY) return;
+            
+            const touchX = e.touches[0].clientX;
+            const touchY = e.touches[0].clientY;
+            
+            const deltaX = touchX - this.touchStartX;
+            const deltaY = touchY - this.touchStartY;
+            
+            // Simple swipe detection
+            if (Math.abs(deltaX) > 10) {
+                this.llama.velocityX = deltaX > 0 ? 3 : -3;
+            }
+            
+            if (deltaY < -20 && !this.llama.isJumping) {
+                this.llama.velocityY = -12;
+                this.llama.isJumping = true;
+            }
+            
+            this.touchStartX = touchX;
+            this.touchStartY = touchY;
+        });
+        
+        this.canvas.addEventListener('touchend', (e) => {
+            this.touchStartX = null;
+            this.touchStartY = null;
+        });
+    }
+    
+    update(deltaTime) {
+        if (!this.gameRunning) return;
+        
+        // Handle keyboard input
+        this.handleInput();
+        
+        // Update llama physics
+        this.updateLlama(deltaTime);
+        
+        // Update spit projectiles
+        this.updateSpits(deltaTime);
+        
+        // Update collectibles
+        this.updateCollectibles();
+        
+        // Update camera to follow llama
+        this.updateCamera();
+        
+        // Generate more terrain if needed
+        this.generateMoreTerrain();
+        
+        // Update score and height
+        this.updateStats();
+    }
+    
+    handleInput() {
+        // Horizontal movement
+        if (this.keys['arrowleft'] || this.keys['a']) {
+            this.llama.velocityX = -4;
+            this.llama.facingRight = false;
+        } else if (this.keys['arrowright'] || this.keys['d']) {
+            this.llama.velocityX = 4;
+            this.llama.facingRight = true;
+        } else {
+            this.llama.velocityX *= 0.8; // Friction
+        }
+        
+        // Jump
+        if ((this.keys[' '] || this.keys['arrowup'] || this.keys['w']) && !this.llama.isJumping) {
+            this.llama.velocityY = -12;
+            this.llama.isJumping = true;
+        }
+    }
+    
+    updateLlama(deltaTime) {
+        // Apply gravity
+        this.llama.velocityY += 0.5;
+        
+        // Update position
+        this.llama.x += this.llama.velocityX;
+        this.llama.y += this.llama.velocityY;
+        
+        // Check terrain collisions
+        this.checkTerrainCollisions();
+        
+        // Animation
+        this.llama.animationFrame++;
+        
+        // Game over if llama falls too low
+        if (this.llama.y > this.canvas.height + 100) {
+            this.gameOver();
+        }
+    }
+    
+    checkTerrainCollisions() {
+        let onGround = false;
+        
+        for (const platform of this.terrain) {
+            // Check if llama is colliding with platform
+            if (this.llama.x < platform.x + platform.width &&
+                this.llama.x + this.llama.width > platform.x &&
+                this.llama.y < platform.y + platform.height &&
+                this.llama.y + this.llama.height > platform.y) {
+                
+                // Determine collision side
+                const bottomCollision = this.llama.y + this.llama.height - platform.y;
+                const topCollision = platform.y + platform.height - this.llama.y;
+                const leftCollision = this.llama.x + this.llama.width - platform.x;
+                const rightCollision = platform.x + platform.width - this.llama.x;
+                
+                // Find minimum collision
+                const minCollision = Math.min(bottomCollision, topCollision, leftCollision, rightCollision);
+                
+                if (minCollision === bottomCollision && this.llama.velocityY > 0) {
+                    // Landing on platform
+                    this.llama.y = platform.y - this.llama.height;
+                    this.llama.velocityY = 0;
+                    this.llama.isJumping = false;
+                    onGround = true;
+                } else if (minCollision === topCollision && this.llama.velocityY < 0) {
+                    // Hitting platform from below
+                    this.llama.y = platform.y + platform.height;
+                    this.llama.velocityY = 0;
+                } else if (minCollision === leftCollision) {
+                    // Hitting platform from left
+                    this.llama.x = platform.x - this.llama.width;
+                    this.llama.velocityX = 0;
+                } else if (minCollision === rightCollision) {
+                    // Hitting platform from right
+                    this.llama.x = platform.x + platform.width;
+                    this.llama.velocityX = 0;
+                }
+            }
+        }
+        
+        if (!onGround && this.llama.velocityY >= 0) {
+            this.llama.isJumping = true;
+        }
+        
+        // Check obstacle collisions - deadly rocks
+        for (let i = this.obstacles.length - 1; i >= 0; i--) {
+            const obstacle = this.obstacles[i];
+            
+            // Small collision box for obstacles (6px radius)
+            const obstacleRadius = 6;
+            const llamaRadius = 12; // Approximate llama collision radius
+            
+            const dx = this.llama.x - obstacle.x;
+            const dy = this.llama.y - obstacle.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (!obstacle.destroyed && distance < (llamaRadius + obstacleRadius)) {
+                // Game over if llama hits obstacle
+                this.gameOver();
+                return;
+            }
+        }
+    }
+    
+    updateCamera() {
+        // Camera follows llama with smoothing
+        const targetX = this.llama.x - this.canvas.width / 2;
+        const targetY = this.llama.y - this.canvas.height / 2;
+        
+        this.cameraX += (targetX - this.cameraX) * 0.1;
+        this.cameraY += (targetY - this.cameraY) * 0.1;
+    }
+    
+    spit() {
+        if (this.spitCount <= 0) return;
+        
+        this.spitCount--;
+        
+        const spit = {
+            x: this.llama.x + (this.llama.facingRight ? this.llama.width : 0),
+            y: this.llama.y + this.llama.height / 2,
+            velocityX: this.llama.facingRight ? 8 : -8,
+            velocityY: 0,
+            life: 60
+        };
+        
+        this.spits.push(spit);
+        
+        // Update UI
+        document.getElementById('spitCount').textContent = this.spitCount;
+    }
+    
+    updateSpits(deltaTime) {
+        for (let i = this.spits.length - 1; i >= 0; i--) {
+            const spit = this.spits[i];
+            
+            // Update position
+            spit.x += spit.velocityX;
+            spit.y += spit.velocityY;
+            spit.life--;
+            
+            // Check collisions with obstacles
+            for (let j = this.obstacles.length - 1; j >= 0; j--) {
+                const obstacle = this.obstacles[j];
+                
+                // Circle collision for spit vs obstacle
+                const dx = spit.x - obstacle.x;
+                const dy = spit.y - obstacle.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (!obstacle.destroyed && distance < 10) { // 8px obstacle + 3px spit
+                    
+                    // Destroy obstacle
+                    obstacle.destroyed = true;
+                    this.spits.splice(i, 1);
+                    this.score += 100;
+                    break;
+                }
+            }
+            
+            // Remove if life expired or out of bounds
+            if (spit.life <= 0 || spit.x < -100 || spit.x > this.canvas.width + 100) {
+                this.spits.splice(i, 1);
+            }
+        }
+    }
+    
+    updateCollectibles() {
+        for (let i = this.collectibles.length - 1; i >= 0; i--) {
+            const collectible = this.collectibles[i];
+            
+            // VERY large hitbox for collectibles - extremely easy to collect
+            const collectibleRadius = collectible.type === 'wool' ? 25 : 22; // Huge hitbox
+            const llamaRadius = 12;
+            
+            const dx = this.llama.x - collectible.x;
+            const dy = this.llama.y - collectible.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (!collectible.collected && distance < (llamaRadius + collectibleRadius)) {
+                
+                collectible.collected = true;
+                
+                if (collectible.type === 'wool') {
+                    this.spitCount++;
+                    this.score += 50;
+                    document.getElementById('spitCount').textContent = this.spitCount;
+                }
+                
+                this.collectibles.splice(i, 1);
+            }
+        }
+    }
+    
+    generateMoreTerrain() {
+        // Find the rightmost terrain
+        let maxX = 0;
+        this.terrain.forEach(platform => {
+            maxX = Math.max(maxX, platform.x);
+        });
+        
+        // Generate more terrain if needed
+        if (maxX - this.cameraX < this.canvas.width * 2) {
+            const newTerrain = this.generateFractalTerrain(maxX + 200);
+            this.terrain.push(...newTerrain);
+            this.generateCollectibles();
+        }
+    }
+    
+    updateStats() {
+        // Height is based on camera Y position (inverted)
+        this.height = Math.floor(Math.max(this.height, -this.cameraY / 10));
+        this.score = Math.floor(this.height * 10);
+        
+        // Update UI
+        document.getElementById('height').textContent = this.height;
+        document.getElementById('score').textContent = this.score;
+        document.getElementById('fractalType').textContent = this.currentFractal.charAt(0).toUpperCase() + this.currentFractal.slice(1);
+        
+        // Increase world speed based on height
+        this.worldSpeed = 1.0 + this.height / 1000;
+    }
+    
+    gameOver() {
+        this.gameRunning = false;
+        alert(`Game Over!\nFinal Height: ${this.height}m\nFinal Score: ${this.score}`);
+        this.restart();
+    }
+    
+    restart() {
+        // Reset game state
+        this.gameRunning = true;
+        this.score = 0;
+        this.height = 0;
+        this.worldSpeed = 1.0;
+        this.spitCount = 3;
+        
+        // Reset llama
+        this.llama.x = this.canvas.width / 2;
+        this.llama.y = this.canvas.height / 2;
+        this.llama.velocityX = 0;
+        this.llama.velocityY = 0;
+        this.llama.isJumping = false;
+        
+        // Clear projectiles and collectibles
+        this.spits = [];
+        this.collectibles = [];
+        this.obstacles = [];
+        
+        // Regenerate terrain
+        this.terrain = [];
+        this.generateInitialTerrain();
+        
+        // Reset camera
+        this.cameraX = 0;
+        this.cameraY = 0;
+        
+        // Update UI
+        document.getElementById('spitCount').textContent = this.spitCount;
+    }
+    
+    render() {
+        // Clear canvas
+        this.ctx.fillStyle = '#1a1a2e';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Save context for camera transformation
+        this.ctx.save();
+        this.ctx.translate(-this.cameraX, -this.cameraY);
+        
+        // Draw terrain
+        this.drawTerrain();
+        
+        // Draw collectibles
+        this.drawCollectibles();
+        
+        // Draw obstacles
+        this.drawObstacles();
+        
+        // Draw spit projectiles
+        this.drawSpits();
+        
+        // Draw llama
+        this.drawLlama();
+        
+        // Restore context
+        this.ctx.restore();
+    }
+    
+    drawTerrain() {
+        this.terrain.forEach(platform => {
+            // Different colors for different fractal types
+            let color;
+            switch(this.currentFractal) {
+                case 'sierpinski': color = '#8a4a4a'; break;
+                case 'perlin': color = '#4a8a4a'; break;
+                case 'mandelbrot': color = '#4a4a8a'; break;
+                case 'koch': color = '#8a8a4a'; break;
+                case 'dragon': color = '#8a4a8a'; break;
+                default: color = '#666';
+            }
+            
+            this.ctx.fillStyle = color;
+            this.ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+            
+            // Platform border
+            this.ctx.strokeStyle = '#fff';
+            this.ctx.lineWidth = 2;
+            this.ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
+        });
+    }
+    
+    drawCollectibles() {
+        this.collectibles.forEach(collectible => {
+            if (!collectible.collected) {
+                if (collectible.type === 'wool') {
+                    // Wool bundle - VERY large and easy to see
+                    this.ctx.fillStyle = '#ffffff';
+                    this.ctx.beginPath();
+                    this.ctx.arc(collectible.x, collectible.y, 18, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                    // Fluffy texture
+                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    this.ctx.beginPath();
+                    this.ctx.arc(collectible.x - 5, collectible.y - 5, 6, 0, Math.PI * 2);
+                    this.ctx.arc(collectible.x + 6, collectible.y + 3, 5, 0, Math.PI * 2);
+                    this.ctx.arc(collectible.x + 3, collectible.y - 6, 5, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+                
+                this.ctx.strokeStyle = '#000';
+                this.ctx.lineWidth = 2;
+                this.ctx.stroke();
+            }
+        });
+    }
+    
+    drawObstacles() {
+        this.obstacles.forEach(obstacle => {
+            if (!obstacle.destroyed) {
+                // Draw rock obstacle - looks like actual rocks
+                this.ctx.fillStyle = '#666';
+                this.ctx.beginPath();
+                this.ctx.arc(obstacle.x, obstacle.y, 6, 0, Math.PI * 2);
+                this.ctx.fill();
+                
+                // Rock cracks and texture
+                this.ctx.strokeStyle = '#444';
+                this.ctx.lineWidth = 1;
+                this.ctx.beginPath();
+                this.ctx.moveTo(obstacle.x - 4, obstacle.y - 2);
+                this.ctx.lineTo(obstacle.x + 2, obstacle.y + 3);
+                this.ctx.stroke();
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(obstacle.x - 1, obstacle.y - 4);
+                this.ctx.lineTo(obstacle.x + 3, obstacle.y + 1);
+                this.ctx.stroke();
+            }
+        });
+    }
+    
+    drawSpits() {
+        this.spits.forEach(spit => {
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            this.ctx.beginPath();
+            this.ctx.arc(spit.x, spit.y, 3, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+    }
+    
+    drawLlama() {
+        const llama = this.llama;
+        const x = llama.x;
+        const y = llama.y;
+        const facingRight = llama.facingRight;
+        const legOffset = Math.sin(llama.animationFrame * 0.3) * 4;
+        const headOffset = Math.sin(llama.animationFrame * 0.1) * 2;
+        
+        this.ctx.save();
+        
+        // Fluffy wool body with natural shape
+        this.ctx.fillStyle = '#f5f5f5';
+        this.ctx.beginPath();
+        this.ctx.ellipse(x, y, 20, 16, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Detailed wool texture with organic pattern
+        this.ctx.fillStyle = '#e0e0e0';
+        for (let i = 0; i < 12; i++) {
+            const angle = (i / 12) * Math.PI * 2;
+            const woolX = x + Math.cos(angle) * 14;
+            const woolY = y + Math.sin(angle) * 12;
+            const size = 2 + Math.sin((i * 0.8) + llama.animationFrame * 0.1) * 1.5;
+            this.ctx.beginPath();
+            this.ctx.arc(woolX, woolY, size, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
+        
+        // Head and neck with natural curve
+        const headX = facingRight ? x + 25 : x - 25;
+        const headY = y - 12 + headOffset;
+        
+        // Elegant neck
+        this.ctx.fillStyle = '#f5f5f5';
+        this.ctx.beginPath();
+        this.ctx.ellipse(headX, y - 6, 8, 12, facingRight ? 0.3 : -0.3, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Expressive head
+        this.ctx.beginPath();
+        this.ctx.ellipse(headX + (facingRight ? 8 : -8), headY, 6, 8, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Muzzle
+        this.ctx.fillStyle = '#a0522d';
+        this.ctx.beginPath();
+        this.ctx.ellipse(headX + (facingRight ? 12 : -12), headY, 4, 5, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Expressive eyes
+        this.ctx.fillStyle = '#2c3e50';
+        this.ctx.beginPath();
+        this.ctx.arc(headX + (facingRight ? 6 : -6), headY - 2, 2.5, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Eye highlights
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.beginPath();
+        this.ctx.arc(headX + (facingRight ? 7 : -5), headY - 3, 0.8, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Nostrils
+        this.ctx.fillStyle = '#8b4513';
+        this.ctx.beginPath();
+        this.ctx.arc(headX + (facingRight ? 14 : -14), headY, 1.2, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Floppy ears
+        this.ctx.fillStyle = '#a0522d';
+        this.ctx.beginPath();
+        this.ctx.moveTo(headX + (facingRight ? 2 : -2), headY - 6);
+        this.ctx.lineTo(headX + (facingRight ? -4 : 4), headY - 10);
+        this.ctx.lineTo(headX + (facingRight ? 6 : -6), headY - 4);
+        this.ctx.closePath();
+        this.ctx.fill();
+        
+        // Detailed legs with natural curves
+        const legColors = ['#8b4513', '#a0522d', '#cd853f'];
+        
+        // Front legs
+        this.drawLlamaLeg(x - 8, y + 12, 10 + legOffset, legColors, false);
+        this.drawLlamaLeg(x + 8, y + 12, 10 - legOffset, legColors, true);
+        
+        // Back legs
+        this.drawLlamaLeg(x - 16, y + 12, 10 - legOffset, legColors, true);
+        this.drawLlamaLeg(x + 16, y + 12, 10 + legOffset, legColors, false);
+        
+        // Fluffy tail
+        this.ctx.fillStyle = '#f5f5f5';
+        this.ctx.beginPath();
+        this.ctx.arc(x - 22, y + 2, 8, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Tail wool texture
+        this.ctx.fillStyle = '#e0e0e0';
+        for (let i = 0; i < 4; i++) {
+            const tailX = x - 22 + Math.cos(i) * 4;
+            const tailY = y + 2 + Math.sin(i) * 4;
+            this.ctx.beginPath();
+            this.ctx.arc(tailX, tailY, 2, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
+        
+        this.ctx.restore();
+    }
+    
+    drawLlamaLeg(x, y, height, colors, isBack) {
+        this.ctx.fillStyle = colors[0];
+        this.ctx.beginPath();
+        this.ctx.roundRect(x - 2, y, 6, height, 2);
+        this.ctx.fill();
+        
+        // Leg highlight
+        this.ctx.fillStyle = colors[1];
+        this.ctx.fillRect(x - 1, y + 2, 3, height - 4);
+        
+        // Hoof
+        this.ctx.fillStyle = '#654321';
+        this.ctx.beginPath();
+        this.ctx.roundRect(x - 3, y + height, 8, 4, 2);
+        this.ctx.fill();
+        
+        // Hoof highlight
+        this.ctx.fillStyle = '#543210';
+        this.ctx.fillRect(x - 2, y + height + 1, 5, 2);
+    }
+    
+    gameLoop = (currentTime = 0) => {
+        const deltaTime = Math.min((currentTime - this.lastTime) / 16, 2);
+        this.lastTime = currentTime;
+        
+        this.update(deltaTime);
+        this.render();
+        
+        if (this.gameRunning) {
+            requestAnimationFrame(this.gameLoop);
+        }
+    }
+}
+
+// Add roundRect method to CanvasRenderingContext2D if not available
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+        if (width < 2 * radius) radius = width / 2;
+        if (height < 2 * radius) radius = height / 2;
+        this.beginPath();
+        this.moveTo(x + radius, y);
+        this.arcTo(x + width, y, x + width, y + height, radius);
+        this.arcTo(x + width, y + height, x, y + height, radius);
+        this.arcTo(x, y + height, x, y, radius);
+        this.arcTo(x, y, x + width, y, radius);
+        this.closePath();
+        return this;
+    };
+}
+
+// Start the game when page loads
+window.addEventListener('load', () => {
+    new FractalLlamaGame();
+});
+    </script>
+</body>
+</html>

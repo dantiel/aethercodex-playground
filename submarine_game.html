@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>U-Boot Taucher — Tiefsee Schatzjagd</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif}
+canvas{display:block}
+#hud{position:fixed;top:0;left:0;right:0;padding:10px 16px;display:flex;gap:24px;color:#fff;font-size:14px;z-index:10;pointer-events:none;text-shadow:0 1px 4px rgba(0,0,0,0.8)}
+.hud-item{display:flex;align-items:center;gap:6px}
+.hud-bar{width:100px;height:8px;background:rgba(255,255,255,0.2);border-radius:4px;overflow:hidden}
+.hud-fill{height:100%;border-radius:4px;transition:width 0.3s}
+.hud-fill.hp{background:linear-gradient(90deg,#f44,#f84)}
+.hud-fill.o2{background:linear-gradient(90deg,#4af,#48f)}
+#depth-indicator{position:fixed;right:16px;top:50%;transform:translateY(-50%);width:4px;height:200px;background:rgba(255,255,255,0.15);border-radius:2px;z-index:10;pointer-events:none}
+#depth-marker{position:absolute;left:-3px;width:10px;height:10px;background:#fff;border-radius:50%;transition:top 0.3s}
+#depth-label{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#fff;font-size:11px;white-space:nowrap}
+#mode-indicator{position:fixed;bottom:40px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:#fff;padding:8px 20px;border-radius:20px;font-size:18px;z-index:10;pointer-events:none;transition:all 0.3s}
+#mode-indicator.grabber{border:2px solid #4f8}
+#mode-indicator.weapon{border:2px solid #f44}
+#mode-indicator.bomb-wpn{border:2px solid #f80;color:#f80}
+#mode-indicator.shock-wpn{border:2px solid #48f;color:#48f}
+#mode-indicator.poison-wpn{border:2px solid #4f4;color:#4f4}
+#crosshair{position:fixed;width:20px;height:20px;pointer-events:none;z-index:15;transform:translate(-50%,-50%)}
+#crosshair::before,#crosshair::after{content:'';position:absolute;background:rgba(255,255,255,0.7)}
+#crosshair::before{left:0;top:9px;width:20px;height:2px}
+#crosshair::after{left:9px;top:0;width:2px;height:20px}
+#shop-overlay,#gameover-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,20,0.92);z-index:100;justify-content:center;align-items:center;flex-direction:column;color:#fff}
+#shop-overlay.active,#gameover-overlay.active{display:flex}
+.shop-title{font-size:28px;margin-bottom:20px;color:#4af}
+.shop-items{display:flex;flex-wrap:wrap;gap:16px;max-width:700px;justify-content:center}
+.shop-card{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:16px;width:200px;text-align:center}
+.shop-card h3{color:#4af;margin-bottom:8px}
+.shop-card .price{color:#fc0;font-size:18px;margin:8px 0}
+.shop-card button{background:#4af;color:#000;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px}
+.shop-card button:hover{background:#6cf}
+.shop-card button:disabled{background:#555;cursor:not-allowed}
+.shop-card .owned{color:#4f8;font-weight:bold}
+#dive-btn{background:#4f8;color:#000;border:none;padding:14px 40px;border-radius:12px;font-size:20px;font-weight:bold;cursor:pointer;margin-top:24px}
+#dive-btn:hover{background:#6fa}
+.gameover-title{font-size:36px;margin-bottom:16px}
+.gameover-stats{font-size:18px;margin-bottom:24px;line-height:1.8}
+#restart-btn{background:#f44;color:#fff;border:none;padding:12px 32px;border-radius:10px;font-size:18px;cursor:pointer;font-weight:bold}
+#restart-btn:hover{background:#f66}
+#surface-btn{margin-top:12px;background:#4af;color:#000;border:none;padding:10px 24px;border-radius:8px;font-size:16px;cursor:pointer}
+#controls-hint{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#fff;padding:14px 24px;border-radius:14px;font-size:13px;z-index:20;pointer-events:none;opacity:0;transition:opacity 0.6s;text-align:center;line-height:1.8}
+#controls-hint.visible{opacity:1}
+#controls-hint kbd{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:5px;padding:2px 7px;font-family:inherit;font-size:12px}
+#dmg-flash{position:fixed;inset:0;pointer-events:none;z-index:50;background:radial-gradient(ellipse at center,rgba(255,0,0,0.5) 0%,transparent 70%);opacity:0;transition:opacity 0.1s}
+#dmg-flash.active{opacity:1;transition:opacity 0s}
+</style>
+</head>
+<body>
+<div id="dmg-flash"></div>
+<div id="hud">
+<div class="hud-item">🪙 <span id="coins">0</span></div>
+<div class="hud-item">💎 <span id="treasures">0</span></div>
+<div class="hud-item">❤️<div class="hud-bar"><div class="hud-fill hp" id="hp-fill" style="width:100%"></div></div></div>
+<div class="hud-item">🫧<div class="hud-bar"><div class="hud-fill o2" id="o2-fill" style="width:100%"></div></div></div>
+<div class="hud-item">🕐 <span id="dive-time">0:00</span></div>
+</div>
+<div id="depth-indicator"><div id="depth-marker" style="top:10%"></div><div id="depth-label">0m</div></div>
+<div id="mode-indicator" class="grabber">🦾 GREIFER</div>
+<div id="crosshair"></div>
+<div id="shop-overlay">
+<div class="shop-title">🔧 U-Boot Werkstatt</div>
+<div class="shop-items" id="shop-items"></div>
+<button id="dive-btn">🌊 TAUCHEN</button>
+</div>
+<div id="gameover-overlay">
+<div class="gameover-title">💥 U-Boot zerstört!</div>
+<div class="gameover-stats" id="gameover-stats"></div>
+<button id="restart-btn">🔄 Zurück zur Werkstatt</button>
+<button id="surface-btn" style="display:none">🏠 Auftauchen</button>
+</div>
+<div id="controls-hint">🎮 <kbd>⬆⬇⬅➡</kbd> oder <kbd>WASD</kbd> = Fahren &nbsp;|&nbsp; <kbd>Tab</kbd> = Greifer↔Waffe &nbsp;|&nbsp; 🖱️ Klick = Benutzen &nbsp;|&nbsp; <kbd>ESC</kbd> = Auftauchen</div>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+// ╔══════════════════════════════════════════╗
+// ║  U-BOOT TIEFSEE — Schatzjagd            ║
+// ║  ÆtherCodex — Hermetic Game Engine      ║
+// ╚══════════════════════════════════════════╝
+
+// ─── DOM REFS ────────────────────────────
+const coinsEl = document.getElementById('coins');
+const treasuresEl = document.getElementById('treasures');
+const hpFill = document.getElementById('hp-fill');
+const o2Fill = document.getElementById('o2-fill');
+const diveTimeEl = document.getElementById('dive-time');
+const depthMarker = document.getElementById('depth-marker');
+const depthLabel = document.getElementById('depth-label');
+const modeIndicator = document.getElementById('mode-indicator');
+const crosshair = document.getElementById('crosshair');
+const shopOverlay = document.getElementById('shop-overlay');
+const shopItems = document.getElementById('shop-items');
+const diveBtn = document.getElementById('dive-btn');
+const gameoverOverlay = document.getElementById('gameover-overlay');
+const gameoverStats = document.getElementById('gameover-stats');
+const restartBtn = document.getElementById('restart-btn');
+const surfaceBtn = document.getElementById('surface-btn');
+const controlsHint = document.getElementById('controls-hint');
+const dmgFlash = document.getElementById('dmg-flash');
+
+// ─── THREE.JS SETUP ──────────────────────
+const renderer = new THREE.WebGLRenderer({antialias:true,alpha:false});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(window.innerWidth,window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x001020, 0.00008);
+scene.background = new THREE.Color(0x001020);
+
+const camera = new THREE.PerspectiveCamera(55,window.innerWidth/window.innerHeight,0.5,200);
+camera.position.set(0,5,35);
+camera.lookAt(0,-10,0);
+
+// ─── LIGHTING ────────────────────────────
+const ambientLight = new THREE.AmbientLight(0x112244,0.6);
+scene.add(ambientLight);
+
+const sunLight = new THREE.DirectionalLight(0x88ccff,4);
+sunLight.position.set(20,30,10);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.set(1024,1024);
+sunLight.shadow.camera.near = 0.5;
+sunLight.shadow.camera.far = 150;
+sunLight.shadow.camera.left = -40;
+sunLight.shadow.camera.right = 40;
+sunLight.shadow.camera.top = 40;
+sunLight.shadow.camera.bottom = -40;
+sunLight.shadow.bias = -0.0001;
+scene.add(sunLight);
+
+// God rays (volumetric light shafts)
+const godRaysGroup = new THREE.Group();
+for(let i=0;i<12;i++){
+  const geom = new THREE.CylinderGeometry(0.3,4,30,8,1,true);
+  const mat = new THREE.MeshBasicMaterial({color:0x88ccff,transparent:true,opacity:0.03,depthWrite:false});
+  const ray = new THREE.Mesh(geom,mat);
+  ray.position.set((Math.random()-0.5)*30,5,(Math.random()-0.5)*5);
+  ray.rotation.z = 0.1 + Math.random()*0.3;
+  godRaysGroup.add(ray);
+}
+scene.add(godRaysGroup);
+
+// ─── OCEAN SURFACE ───────────────────────
+const surfaceGeom = new THREE.PlaneGeometry(200,1);
+const surfaceMat = new THREE.ShaderMaterial({
+  uniforms:{
+    uTime:{value:0},
+    uColor:{value:new THREE.Color(0x4488cc)}
+  },
+  vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+  fragmentShader:`varying vec2 vUv;uniform float uTime;uniform vec3 uColor;void main(){float wave=sin(vUv.x*20.0+uTime*0.5)*0.5+0.5;float alpha=0.6+wave*0.3;gl_FragColor=vec4(uColor,alpha);}`,
+  transparent:true,depthWrite:false
+});
+const surface = new THREE.Mesh(surfaceGeom,surfaceMat);
+surface.position.y = 15;
+surface.receiveShadow = true;
+scene.add(surface);
+
+// ─── BUBBLE PARTICLES ────────────────────
+const bubbleCount = 200;
+const bubbleGeom = new THREE.BufferGeometry();
+const bubblePositions = new Float32Array(bubbleCount*3);
+const bubbleSizes = new Float32Array(bubbleCount);
+const bubbleData = [];
+for(let i=0;i<bubbleCount;i++){
+  bubblePositions[i*3] = (Math.random()-0.5)*50;
+  bubblePositions[i*3+1] = Math.random()*40-30;
+  bubblePositions[i*3+2] = (Math.random()-0.5)*20;
+  bubbleSizes[i] = 0.05 + Math.random()*0.3;
+  bubbleData.push({speed:0.2+Math.random()*0.8,wobble:Math.random()*Math.PI*2});
+}
+bubbleGeom.setAttribute('position',new THREE.BufferAttribute(bubblePositions,3));
+bubbleGeom.setAttribute('size',new THREE.BufferAttribute(bubbleSizes,1));
+const bubbleMat = new THREE.PointsMaterial({color:0xaaddff,size:0.3,transparent:true,opacity:0.5,depthWrite:false,blending:THREE.AdditiveBlending});
+const bubbles = new THREE.Points(bubbleGeom,bubbleMat);
+scene.add(bubbles);
+
+// ─── SEA FLOOR ───────────────────────────
+const seaFloorGroup = new THREE.Group();
+const floorMat = new THREE.MeshStandardMaterial({color:0x4a3728,roughness:0.9,metalness:0.1});
+const sandMat = new THREE.MeshStandardMaterial({color:0x8a7560,roughness:0.8,metalness:0.05});
+const rockMat = new THREE.MeshStandardMaterial({color:0x3a3028,roughness:0.95,metalness:0.15});
+
+const terrainSegments = [];
+const SEGMENT_WIDTH = 40;
+const SEGMENT_COUNT = 8;
+const MAX_DEPTH = 60;
+
+// Procedural terrain height function
+function getTerrainHeight(worldX){
+  const h = 
+    Math.sin(worldX*0.03)*12 +
+    Math.sin(worldX*0.07+2)*8 +
+    Math.sin(worldX*0.13+5)*5 +
+    Math.sin(worldX*0.02+1)*18 +
+    Math.cos(worldX*0.05)*6;
+  return -15 - Math.abs(h);
+}
+
+function createTerrainSegment(segIndex){
+  const group = new THREE.Group();
+  const startX = (segIndex - SEGMENT_COUNT/2) * SEGMENT_WIDTH;
+  const segments = 40;
+  const verts = [];
+  const indices = [];
+  
+  for(let i=0;i<=segments;i++){
+    const x = startX + (i/segments)*SEGMENT_WIDTH;
+    const y = getTerrainHeight(x);
+    verts.push(new THREE.Vector3(x,y,0));
+    verts.push(new THREE.Vector3(x,y-8,0));
+  }
+  
+  const positions = [];
+  for(const v of verts) positions.push(v.x,v.y,v.z);
+  
+  for(let i=0;i<segments;i++){
+    const a=i*2,b=i*2+1,c=i*2+2,d=i*2+3;
+    indices.push(a,b,c, c,b,d);
+  }
+  
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position',new THREE.BufferAttribute(new Float32Array(positions),3));
+  geom.setIndex(indices);
+  geom.computeVertexNormals();
+  
+  const mesh = new THREE.Mesh(geom,floorMat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  group.add(mesh);
+  
+  // Rocks
+  for(let i=0;i<8;i++){
+    const rx = startX + Math.random()*SEGMENT_WIDTH;
+    const ry = getTerrainHeight(rx) - 0.5;
+    const rockGeom = new THREE.IcosahedronGeometry(0.3+Math.random()*1.5,0);
+    const rock = new THREE.Mesh(rockGeom,rockMat);
+    rock.position.set(rx,ry,Math.random()*3-1.5);
+    rock.rotation.set(Math.random()*Math.PI,Math.random()*Math.PI,0);
+    rock.scale.set(1,0.3+Math.random()*0.7,1);
+    rock.castShadow = true;
+    group.add(rock);
+  }
+  
+  // Coral/seaweed
+  for(let i=0;i<5;i++){
+    const cx = startX + Math.random()*SEGMENT_WIDTH;
+    const cy = getTerrainHeight(cx) + 0.3;
+    const coralGeom = new THREE.ConeGeometry(0.2,1+Math.random()*3,6);
+    const coralColors = [0xff6644,0xff4488,0xff8844,0xcc3366,0xffaa44];
+    const coralMat = new THREE.MeshStandardMaterial({color:coralColors[Math.floor(Math.random()*5)],roughness:0.6});
+    const coral = new THREE.Mesh(coralGeom,coralMat);
+    coral.position.set(cx,cy,Math.random()*2-1);
+    coral.castShadow = true;
+    group.add(coral);
+  }
+  
+  return {group,startX,endX:startX+SEGMENT_WIDTH};
+}
+
+for(let i=0;i<SEGMENT_COUNT;i++){
+  const seg = createTerrainSegment(i);
+  seaFloorGroup.add(seg.group);
+  terrainSegments.push(seg);
+}
+scene.add(seaFloorGroup);
+
+// ─── SUBMARINE ───────────────────────────
+const submarine = new THREE.Group();
+
+// Main hull
+const hullGeom = new THREE.CapsuleGeometry(0.8,2.5,8,16);
+const hullMat = new THREE.MeshStandardMaterial({color:0xddbb33,roughness:0.3,metalness:0.8});
+const hull = new THREE.Mesh(hullGeom,hullMat);
+hull.rotation.z = Math.PI/2;
+hull.castShadow = true;
+submarine.add(hull);
+
+// Cockpit
+const cockpitGeom = new THREE.SphereGeometry(0.6,16,16);
+const cockpitMat = new THREE.MeshStandardMaterial({color:0x88ccff,roughness:0.1,metalness:0.2,transparent:true,opacity:0.7});
+const cockpit = new THREE.Mesh(cockpitGeom,cockpitMat);
+cockpit.position.set(1.2,0.2,0);
+submarine.add(cockpit);
+
+// Propeller
+const propGeom = new THREE.BoxGeometry(0.1,1.5,0.3);
+const propMat = new THREE.MeshStandardMaterial({color:0x888888,roughness:0.2,metalness:0.9});
+const propeller = new THREE.Mesh(propGeom,propMat);
+propeller.position.set(-1.8,0,0);
+submarine.add(propeller);
+
+// Fins
+for(let s=-1;s<=1;s+=2){
+  const finGeom = new THREE.BoxGeometry(1.2,0.1,0.6);
+  const fin = new THREE.Mesh(finGeom,propMat);
+  fin.position.set(-0.2,s*0.6,0);
+  submarine.add(fin);
+}
+
+// Top fin
+const topFinGeom = new THREE.BoxGeometry(0.8,0.1,0.5);
+const topFin = new THREE.Mesh(topFinGeom,propMat);
+topFin.position.set(-0.5,0,0.7);
+submarine.add(topFin);
+
+// Headlight
+const lightGeom = new THREE.SphereGeometry(0.15,8,8);
+const lightMat = new THREE.MeshStandardMaterial({color:0xffff88,emissive:0xffff88,emissiveIntensity:2});
+const headlight = new THREE.Mesh(lightGeom,lightMat);
+headlight.position.set(2.1,0,0);
+submarine.add(headlight);
+
+const spotLight = new THREE.SpotLight(0xffffcc,8,15,Math.PI/6,0.3,1);
+spotLight.position.copy(headlight.position);
+spotLight.target.position.set(5,0,0);
+submarine.add(spotLight);
+submarine.add(spotLight.target);
+
+submarine.position.set(0,-5,0);
+scene.add(submarine);
+
+// ─── GRABBER ARM ─────────────────────────
+const grabberGroup = new THREE.Group();
+const armSegments = [];
+const ARM_MAX_LENGTH = 8;
+const ARM_SEGMENTS = 6;
+
+for(let i=0;i<ARM_SEGMENTS;i++){
+  const segGeom = new THREE.CylinderGeometry(0.08,0.1,ARM_MAX_LENGTH/ARM_SEGMENTS,8);
+  const segMat = new THREE.MeshStandardMaterial({color:0x888888,roughness:0.2,metalness:0.9});
+  const seg = new THREE.Mesh(segGeom,segMat);
+  seg.position.y = (i+0.5)*(ARM_MAX_LENGTH/ARM_SEGMENTS);
+  seg.visible = false;
+  armSegments.push(seg);
+  grabberGroup.add(seg);
+}
+
+// Claw
+const clawGroup = new THREE.Group();
+for(let s=-1;s<=1;s+=2){
+  const clawGeom = new THREE.ConeGeometry(0.12,0.5,4);
+  const claw = new THREE.Mesh(clawGeom,new THREE.MeshStandardMaterial({color:0xcccccc,roughness:0.2,metalness:0.9}));
+  claw.position.set(s*0.15,-0.15,0);
+  claw.rotation.z = s*0.4;
+  clawGroup.add(claw);
+}
+clawGroup.position.y = ARM_MAX_LENGTH;
+clawGroup.visible = false;
+grabberGroup.add(clawGroup);
+grabberGroup.position.set(2,0,0);
+submarine.add(grabberGroup);
+
+// ─── WEAPON MUZZLE FLASH ─────────────────
+const muzzleFlashGeom = new THREE.SphereGeometry(0.5,8,8);
+const muzzleFlashMat = new THREE.MeshBasicMaterial({color:0xffaa00,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false});
+const muzzleFlash = new THREE.Mesh(muzzleFlashGeom,muzzleFlashMat);
+muzzleFlash.position.set(2.8,0,0);
+submarine.add(muzzleFlash);
+
+// ─── PROJECTILE SYSTEM ────────────────────
+const projectiles = [];
+const effects = []; // Temp particles: explosions, flashes, coins
+
+// Shared geometries
+const bombGeom = new THREE.SphereGeometry(0.25,8,8);
+const dartGeom = new THREE.ConeGeometry(0.12,0.6,6,6);
+const dartTrailGeom = new THREE.SphereGeometry(0.06,4,4);
+
+function spawnProjectile(type,origin,direction){
+  const lvl = state.upgrades[type].level;
+  let proj;
+  
+  if(type==='bomb'){
+    // Wasserbombe: dark sphere, sinks downward
+    const mat = new THREE.MeshStandardMaterial({color:0x334455,roughness:0.3,metalness:0.7,emissive:0x110000,emissiveIntensity:0.4});
+    proj = new THREE.Mesh(bombGeom,mat);
+    proj.position.copy(origin);
+    // Sink downward + slight forward momentum
+    proj.userData = {
+      weaponType:'bomb',
+      velocity:new THREE.Vector3(direction.x*5,-8,0),
+      life:4,
+      damage:25+lvl*12,
+      aoe:3
+    };
+    // Fuse spark particles
+    const sparkGeom = new THREE.SphereGeometry(0.04,3,3);
+    const sparkMat = new THREE.MeshBasicMaterial({color:0xff6600,blending:THREE.AdditiveBlending});
+    const spark = new THREE.Mesh(sparkGeom,sparkMat);
+    spark.position.set(0,0.3,0);
+    proj.add(spark);
+    
+  } else if(type==='shock'){
+    // Schockpfeil: blue-white bolt, very fast
+    const mat = new THREE.MeshStandardMaterial({color:0x4488ff,roughness:0.1,metalness:0.3,emissive:0x2244aa,emissiveIntensity:0.8});
+    proj = new THREE.Mesh(dartGeom,mat);
+    proj.position.copy(origin);
+    proj.rotation.z = Math.atan2(direction.y,direction.x)-Math.PI/2;
+    proj.userData = {
+      weaponType:'shock',
+      velocity:direction.clone().multiplyScalar(22),
+      life:2.5,
+      damage:15+lvl*8,
+      stunDuration:0.8+lvl*0.4
+    };
+    // Electric trail
+    const trailMat = new THREE.MeshBasicMaterial({color:0x88ccff,transparent:true,opacity:0.7,blending:THREE.AdditiveBlending});
+    const trail = new THREE.Mesh(dartTrailGeom,trailMat);
+    proj.add(trail);
+    
+  } else if(type==='poison'){
+    // Giftpfeil: green dart, medium speed
+    const mat = new THREE.MeshStandardMaterial({color:0x22aa44,roughness:0.2,metalness:0.4,emissive:0x114411,emissiveIntensity:0.6});
+    proj = new THREE.Mesh(dartGeom,mat);
+    proj.position.copy(origin);
+    proj.rotation.z = Math.atan2(direction.y,direction.x)-Math.PI/2;
+    proj.userData = {
+      weaponType:'poison',
+      velocity:direction.clone().multiplyScalar(14),
+      life:3,
+      damage:10+lvl*5,
+      poisonDps:5+lvl*3,
+      poisonDuration:3+lvl*1
+    };
+    // Green bubble trail
+    const trailMat = new THREE.MeshBasicMaterial({color:0x44cc44,transparent:true,opacity:0.5,blending:THREE.AdditiveBlending});
+    const trail = new THREE.Mesh(dartTrailGeom,trailMat);
+    proj.add(trail);
+  }
+  
+  proj.castShadow = true;
+  scene.add(proj);
+  projectiles.push(proj);
+}
+
+// ─── MONSTERS ────────────────────────────
+const monsters = [];
+const MONSTER_TYPES = {
+  anglerfish:{color:0x334455,size:1.5,hp:30,damage:8,speed:1.2,reward:25,treasure:'common'},
+  eel:{color:0x226644,size:2.0,hp:45,damage:12,speed:1.8,reward:40,treasure:'uncommon'},
+  jellyfish:{color:0x8844aa,size:1.8,hp:25,damage:15,speed:0.6,reward:35,treasure:'common'},
+  squid:{color:0x662244,size:2.5,hp:60,damage:18,speed:1.0,reward:60,treasure:'rare'},
+  shark:{color:0x445566,size:3.0,hp:80,damage:22,speed:2.5,reward:80,treasure:'epic'}
+};
+
+function createMonster(type,position){
+  const cfg = MONSTER_TYPES[type];
+  const group = new THREE.Group();
+  
+  // Body
+  const bodyGeom = new THREE.SphereGeometry(cfg.size*0.6,12,8);
+  bodyGeom.scale(1.3,0.8,0.7);
+  const bodyMat = new THREE.MeshStandardMaterial({color:cfg.color,roughness:0.4,metalness:0.2});
+  const body = new THREE.Mesh(bodyGeom,bodyMat);
+  body.castShadow = true;
+  group.add(body);
+  
+  // Eyes
+  for(let s=-1;s<=1;s+=2){
+    const eyeGeom = new THREE.SphereGeometry(0.15,8,8);
+    const eyeMat = new THREE.MeshStandardMaterial({color:0xffff00,emissive:0xffff00,emissiveIntensity:1.5});
+    const eye = new THREE.Mesh(eyeGeom,eyeMat);
+    eye.position.set(cfg.size*0.4,s*cfg.size*0.25,cfg.size*0.2);
+    group.add(eye);
+  }
+  
+  // Teeth for anglerfish/shark
+  if(type==='anglerfish'||type==='shark'){
+    for(let i=0;i<6;i++){
+      const toothGeom = new THREE.ConeGeometry(0.06,0.3,4);
+      const tooth = new THREE.Mesh(toothGeom,new THREE.MeshStandardMaterial({color:0xfffff0,roughness:0.3}));
+      tooth.position.set(cfg.size*0.6,(i-2.5)*0.15,0);
+      tooth.rotation.z = Math.PI/2;
+      group.add(tooth);
+    }
+  }
+  
+  // Lure for anglerfish
+  if(type==='anglerfish'){
+    const lureStalkGeom = new THREE.CylinderGeometry(0.02,0.02,1.2,4);
+    const lureStalk = new THREE.Mesh(lureStalkGeom,new THREE.MeshStandardMaterial({color:0x334455}));
+    lureStalk.position.set(cfg.size*0.3,cfg.size*0.5,0);
+    lureStalk.rotation.z = -0.8;
+    group.add(lureStalk);
+    
+    const lureGeom = new THREE.SphereGeometry(0.1,8,8);
+    const lureMat = new THREE.MeshStandardMaterial({color:0x44ff44,emissive:0x44ff44,emissiveIntensity:2});
+    const lure = new THREE.Mesh(lureGeom,lureMat);
+    lure.position.set(cfg.size*0.3+Math.cos(-0.8)*1.2,cfg.size*0.5+Math.sin(-0.8)*1.2,0);
+    lure.name = 'lure';
+    group.add(lure);
+  }
+  
+  // Tentacles for squid
+  if(type==='squid'){
+    for(let i=0;i<4;i++){
+      const tentGeom = new THREE.CylinderGeometry(0.05,0.08,cfg.size*0.8,6);
+      const tent = new THREE.Mesh(tentGeom,bodyMat);
+      tent.position.set(-cfg.size*0.4,(i-1.5)*0.25,0);
+      tent.rotation.z = Math.PI/2 + (i-1.5)*0.2;
+      group.add(tent);
+    }
+  }
+  
+  group.position.copy(position);
+  group.userData = {
+    type,hp:cfg.hp,maxHp:cfg.hp,damage:cfg.damage,speed:cfg.speed,
+    reward:cfg.reward,treasure:cfg.treasure,
+    patrolOrigin:position.clone(),patrolRadius:3+Math.random()*5,
+    phase:Math.random()*Math.PI*2,state:'patrol',
+    attackCooldown:0,hitFlash:0,stunned:0,poisonTicks:0,poisonDps:0
+  };
+  scene.add(group);
+  monsters.push(group);
+  return group;
+}
+
+// ─── TREASURES ───────────────────────────
+const treasures = [];
+const TREASURE_TYPES = {
+  common:{color:0xccaa44,value:50,glow:0xffcc44},
+  uncommon:{color:0x44aacc,value:120,glow:0x44ccff},
+  rare:{color:0xcc44cc,value:250,glow:0xcc44ff},
+  epic:{color:0xff4400,value:500,glow:0xff8844}
+};
+
+function createTreasure(type,position){
+  const cfg = TREASURE_TYPES[type];
+  const group = new THREE.Group();
+  
+  // Chest body
+  const chestGeom = new THREE.BoxGeometry(0.7,0.5,0.5);
+  const chestMat = new THREE.MeshStandardMaterial({color:cfg.color,roughness:0.3,metalness:0.7,emissive:cfg.glow,emissiveIntensity:0.4});
+  const chest = new THREE.Mesh(chestGeom,chestMat);
+  chest.position.y = 0.2;
+  chest.castShadow = true;
+  group.add(chest);
+  
+  // Lid
+  const lidGeom = new THREE.BoxGeometry(0.7,0.15,0.55);
+  const lid = new THREE.Mesh(lidGeom,chestMat);
+  lid.position.y = 0.5;
+  group.add(lid);
+  
+  // Glow sphere
+  const glowGeom = new THREE.SphereGeometry(0.5,16,16);
+  const glowMat = new THREE.MeshBasicMaterial({color:cfg.glow,transparent:true,opacity:0.15,blending:THREE.AdditiveBlending,depthWrite:false});
+  const glow = new THREE.Mesh(glowGeom,glowMat);
+  group.add(glow);
+  
+  group.position.copy(position);
+  group.userData = {type,value:cfg.value,collected:false,guardian:null};
+  scene.add(group);
+  treasures.push(group);
+  return group;
+}
+
+// ─── GAME STATE ──────────────────────────
+const state = {
+  mode:'shop', // shop | diving | gameover
+  coins:0,
+  treasures:0,
+  hp:100,
+  maxHp:100,
+  oxygen:100,
+  maxOxygen:100,
+  diveTime:0,
+  totalDepth:0,
+  maxDepth:5,
+  
+  // Sub upgrades
+  upgrades:{
+    hull:{level:0,max:3,cost:[0,80,180,350],name:'Rumpfverstärkung',desc:'+25 HP pro Stufe'},
+    oxygen:{level:0,max:3,cost:[0,60,140,280],name:'Sauerstofftank',desc:'+30 O₂ Kapazität'},
+    speed:{level:0,max:3,cost:[0,70,160,300],name:'Antrieb',desc:'+15% Geschwindigkeit'},
+    grabber:{level:0,max:3,cost:[0,90,200,400],name:'Greifer',desc:'+2m Reichweite'},
+    bomb:{level:0,max:4,cost:[0,120,260,500,900],name:'UNTERWASSERBOMBE',desc:'Sinkt &amp; explodiert (AoE)',icon:'💣'},
+    shock:{level:0,max:4,cost:[0,100,220,450,800],name:'Schockpfeil',desc:'Betäubt Monster',icon:'⚡'},
+    poison:{level:0,max:4,cost:[0,110,240,480,850],name:'Giftpfeil',desc:'Gift-DoT über Zeit',icon:'🧪'},
+  },
+  currentWeapon:'bomb',
+  
+  currentZone:1,
+  zoneNames:['Korallenriff','Tangwald','Tiefsee-Graben','Geysir-Feld','Abgrund','Tiefster Ozean'],
+  
+  // Input
+  keys:{},
+  mouse:{x:0,y:0,worldX:0,worldY:0},
+  grabberExtended:0,
+  grabberHolding:null,
+  
+  // World
+  worldOffset:0,
+};
+
+// ─── INPUT ───────────────────────────────
+window.addEventListener('keydown',e=>{state.keys[e.key]=true;e.preventDefault()});
+window.addEventListener('keyup',e=>{state.keys[e.key]=false;e.preventDefault()});
+window.addEventListener('mousemove',e=>{
+  state.mouse.x = (e.clientX/window.innerWidth)*2-1;
+  state.mouse.y = -(e.clientY/window.innerHeight)*2+1;
+  crosshair.style.left = e.clientX+'px';
+  crosshair.style.top = e.clientY+'px';
+});
+window.addEventListener('click',()=>{
+  if(state.mode!=='diving') return;
+  if(state.mode_indicator==='grabber'){
+    // Extend/retract grabber
+    if(state.grabberHolding){
+      // Release held treasure
+    } else if(state.grabberExtended<0.1){
+      state.grabberExtended = 0.01; // Start extending
+    } else {
+      // Retract if already extended
+      state.grabberExtended = 0;
+    }
+  } else {
+    // Fire selected weapon
+    fireWeapon();
+  }
+});
+window.addEventListener('contextmenu',e=>e.preventDefault());
+
+// Toggle grabber/weapon with Tab or Q
+window.addEventListener('keydown',e=>{
+  if(e.key==='Tab'||e.key==='q'){
+    e.preventDefault();
+    state.mode_indicator = state.mode_indicator==='grabber'?'weapon':'grabber';
+    updateModeIndicator();
+  }
+  if(e.key==='Escape'&&state.mode==='diving'){
+    surfaceEarly();
+  }
+});
+
+state.mode_indicator = 'grabber';
+
+// ─── HELPER FUNCTIONS ────────────────────
+function updateModeIndicator(){
+  if(state.mode_indicator==='grabber'){
+    modeIndicator.textContent = '🦾 GREIFER';
+    modeIndicator.className = 'grabber';
+  } else {
+    const icons = {bomb:'💣 WASSERBOMBE',shock:'⚡ SCHOCKPFEIL',poison:'🧪 GIFTPFEIL'};
+    const cls = {bomb:'weapon bomb-wpn',shock:'weapon shock-wpn',poison:'weapon poison-wpn'};
+    modeIndicator.textContent = icons[state.currentWeapon];
+    modeIndicator.className = cls[state.currentWeapon];
+  }
+}
+updateModeIndicator();
+
+function getSubSpeed(){
+  return 5 + state.upgrades.speed.level*0.75;
+}
+
+function getMaxOxygen(){
+  return state.maxOxygen + state.upgrades.oxygen.level*30;
+}
+
+function getMaxHp(){
+  return state.maxHp + state.upgrades.hull.level*25;
+}
+
+function getGrabberRange(){
+  return ARM_MAX_LENGTH + state.upgrades.grabber.level*2;
+}
+
+function getWeaponDamage(type){
+  const lvl = state.upgrades[type].level;
+  if(type==='bomb') return 25+lvl*12;
+  if(type==='shock') return 15+lvl*8;
+  if(type==='poison') return 10+lvl*5;
+  return 20;
+}
+
+function fireWeapon(){
+  const dir = getMouseWorldDirection();
+  const origin = submarine.position.clone().add(new THREE.Vector3(2.5,0,0));
+  spawnProjectile(state.currentWeapon,origin,dir);
+  // Muzzle flash color matches weapon
+  const colors = {bomb:0xff6600,shock:0x4488ff,poison:0x44ff44};
+  muzzleFlash.material.color.set(colors[state.currentWeapon]||0xffaa00);
+  muzzleFlash.material.opacity = 1;
+  setTimeout(()=>{muzzleFlash.material.opacity = 0;},80);
+}
+
+function getMouseWorldDirection(){
+  // Convert mouse screen position to world direction from submarine
+  const subPos = submarine.position.clone();
+  const mouseWorldX = camera.position.x + state.mouse.x*30;
+  const mouseWorldY = camera.position.y + state.mouse.y*20;
+  const dir = new THREE.Vector3(mouseWorldX,mouseWorldY,0).sub(subPos).normalize();
+  return dir;
+}
+
+// ─── SURFACE EARLY ───────────────────────
+function surfaceEarly(){
+  state.mode = 'shop';
+  state.oxygen = getMaxOxygen();
+  state.hp = getMaxHp();
+  state.grabberExtended = 0;
+  state.grabberHolding = null;
+  submarine.position.set(0,-5,0);
+  state.diveTime = 0;
+  updateShopUI();
+  shopOverlay.classList.add('active');
+  gameoverOverlay.classList.remove('active');
+  // Remove all monsters and treasures
+  for(const m of monsters) scene.remove(m);
+  monsters.length = 0;
+  for(const t of treasures) scene.remove(t);
+  treasures.length = 0;
+  for(const p of projectiles) scene.remove(p);
+  projectiles.length = 0;
+}
+
+// ─── START DIVE ──────────────────────────
+function startDive(){
+  state.mode = 'diving';
+  state.oxygen = getMaxOxygen();
+  state.hp = getMaxHp();
+  state.diveTime = 0;
+  state.grabberExtended = 0;
+  state.grabberHolding = null;
+  submarine.position.set(0,-5,0);
+  state.worldOffset = 0;
+  
+  // Clear old
+  for(const m of monsters) scene.remove(m);
+  monsters.length = 0;
+  for(const t of treasures) scene.remove(t);
+  treasures.length = 0;
+  for(const p of projectiles) scene.remove(p);
+  projectiles.length = 0;
+  
+  // Generate zone
+  generateZone();
+  
+  shopOverlay.classList.remove('active');
+  gameoverOverlay.classList.remove('active');
+  
+  // Flash control hints
+  controlsHint.classList.add('visible');
+  setTimeout(()=>controlsHint.classList.remove('visible'),6000);
+}
+
+function generateZone(){
+  const depth = -15 - state.currentZone*10;
+  const zoneWidth = 60 + state.currentZone*20;
+  
+  // Spawn monsters with treasures
+  const monsterCount = 4 + state.currentZone*2;
+  const monsterTypes = Object.keys(MONSTER_TYPES);
+  const availableTypes = monsterTypes.slice(0,Math.min(state.currentZone+1,monsterTypes.length));
+  
+  for(let i=0;i<monsterCount;i++){
+    const mx = (Math.random()-0.5)*zoneWidth;
+    const my = depth + Math.random()*10 - 5;
+    const mz = (Math.random()-0.5)*8;
+    const type = availableTypes[Math.floor(Math.random()*availableTypes.length)];
+    const monster = createMonster(type,new THREE.Vector3(mx,my,mz));
+    
+    // Treasure near monster
+    const treasTypes = ['common','common','uncommon','rare','epic'];
+    const tType = treasTypes[Math.min(state.currentZone,treasTypes.length-1)];
+    const tx = mx + (Math.random()-0.5)*3;
+    const ty = getTerrainHeight(tx) + 1.5;
+    const treasure = createTreasure(tType,new THREE.Vector3(tx,ty,0));
+    treasure.userData.guardian = monster;
+  }
+  
+  // Extra treasures
+  for(let i=0;i<3;i++){
+    const tx = (Math.random()-0.5)*zoneWidth;
+    const ty = depth + Math.random()*5;
+    const treasTypes = ['common','common','uncommon','uncommon','rare','rare','epic'];
+    const tType = treasTypes[Math.min(state.currentZone+1,treasTypes.length-1)];
+    createTreasure(tType,new THREE.Vector3(tx,ty,0));
+  }
+}
+
+// ─── UPDATE ──────────────────────────────
+function update(dt){
+  if(state.mode!=='diving') return;
+  
+  dt = Math.min(dt,0.1); // Cap dt
+  
+  // Oxygen drain
+  state.oxygen -= dt*4;
+  if(state.oxygen<=0){
+    state.hp -= dt*10;
+    if(state.hp<=0) gameOver();
+  }
+  
+  // Dive time & coins
+  state.diveTime += dt;
+  if(Math.floor(state.diveTime)!==Math.floor(state.diveTime-dt)){
+    state.coins += 2 + state.currentZone;
+  }
+  
+  // Submarine movement
+  const speed = getSubSpeed();
+  let moveX=0, moveY=0;
+  if(state.keys['ArrowLeft']||state.keys['a']) moveX = -1;
+  if(state.keys['ArrowRight']||state.keys['d']) moveX = 1;
+  if(state.keys['ArrowUp']||state.keys['w']) moveY = 1;
+  if(state.keys['ArrowDown']||state.keys['s']) moveY = -1;
+  
+  const moveLen = Math.sqrt(moveX*moveX+moveY*moveY);
+  if(moveLen>1){ moveX/=moveLen; moveY/=moveLen; }
+  
+  const subSpeed = speed*dt;
+  submarine.position.x += moveX*subSpeed;
+  submarine.position.y += moveY*subSpeed;
+  
+  // Tilt submarine based on movement
+  const targetTilt = -moveX*0.3;
+  submarine.rotation.z += (targetTilt-submarine.rotation.z)*5*dt;
+  
+  // Propeller spin
+  propeller.rotation.x += (moveLen>0.1?20:3)*dt;
+  
+  // Clamp to world
+  submarine.position.y = Math.max(-MAX_DEPTH, Math.min(15,submarine.position.y));
+  
+  // Track world offset
+  state.worldOffset = submarine.position.x;
+  
+  // Update terrain - shift segments
+  updateTerrain();
+  
+  // Update grabber
+  updateGrabber(dt);
+  
+  // Update monsters
+  updateMonsters(dt);
+  
+  // Update projectiles
+  updateProjectiles(dt);
+  
+  // Update effects (particles, explosions, flashes)
+  updateEffects(dt);
+  
+  // Check treasure collection
+  checkTreasureCollision();
+  
+  // Update camera
+  camera.position.x += (submarine.position.x-camera.position.x)*3*dt;
+  camera.position.y += (submarine.position.y-camera.position.y)*3*dt;
+  camera.lookAt(camera.position.x,camera.position.y,0);
+  
+  // Update god rays
+  godRaysGroup.position.x = camera.position.x;
+  godRaysGroup.position.y = camera.position.y;
+  
+  // Update surface
+  surface.position.x = camera.position.x;
+  surface.material.uniforms.uTime.value += dt;
+  
+  // Update bubbles
+  const bPos = bubbles.geometry.attributes.position.array;
+  for(let i=0;i<bubbleCount;i++){
+    bPos[i*3+1] += bubbleData[i].speed*dt;
+    bPos[i*3] += Math.sin(bubbleData[i].wobble+state.diveTime*2)*0.3*dt;
+    if(bPos[i*3+1]>18) bPos[i*3+1] = -35;
+  }
+  bubbles.geometry.attributes.position.needsUpdate = true;
+  
+  // Update HUD
+  updateHUD();
+}
+
+function updateTerrain(){
+  // Check if we need new segments
+  const camX = camera.position.x;
+  for(const seg of terrainSegments){
+    if(camX > seg.endX - SEGMENT_WIDTH*2){
+      // Need segment to the right
+      const newIdx = terrainSegments.length;
+      const newSeg = createTerrainSegment(newIdx);
+      seaFloorGroup.add(newSeg.group);
+      terrainSegments.push(newSeg);
+    }
+    if(terrainSegments.length>12){
+      const old = terrainSegments.shift();
+      seaFloorGroup.remove(old.group);
+    }
+  }
+}
+
+function updateGrabber(dt){
+  if(state.mode_indicator==='grabber' && state.grabberExtended>0 && !state.grabberHolding){
+    // Extending
+    state.grabberExtended = Math.min(getGrabberRange(),state.grabberExtended+10*dt);
+    
+    // Check for treasure grab
+    const dir = getMouseWorldDirection();
+    const grabEnd = submarine.position.clone().add(dir.clone().multiplyScalar(state.grabberExtended));
+    for(const t of treasures){
+      if(t.userData.collected) continue;
+      if(grabEnd.distanceTo(t.position)<1.2){
+        state.grabberHolding = t;
+        t.userData.collected = true;
+        state.coins += t.userData.value;
+        state.treasures++;
+        break;
+      }
+    }
+    // Auto-retract if maxed out and nothing grabbed
+    if(!state.grabberHolding && state.grabberExtended >= getGrabberRange()-0.1){
+      state.grabberExtended = 0;
+    }
+  }
+  
+  if(state.grabberHolding){
+    // Retract with treasure
+    state.grabberExtended = Math.max(0,state.grabberExtended-6*dt);
+    if(state.grabberExtended<0.1){
+      // Treasure collected
+      scene.remove(state.grabberHolding);
+      const idx = treasures.indexOf(state.grabberHolding);
+      if(idx>-1) treasures.splice(idx,1);
+      state.grabberHolding = null;
+      state.grabberExtended = 0;
+    }
+  }
+  
+  if(state.mode_indicator==='weapon'&&state.grabberExtended>0&&!state.grabberHolding){
+    // Retract when switching to weapon
+    state.grabberExtended = Math.max(0,state.grabberExtended-8*dt);
+  }
+  
+  // Update arm visuals
+  const dir = state.grabberHolding ? 
+    state.grabberHolding.position.clone().sub(submarine.position).normalize() :
+    getMouseWorldDirection();
+  
+  const angle = Math.atan2(dir.y,dir.x);
+  grabberGroup.rotation.set(0,0,angle - Math.PI/2);
+  
+  const visibleLength = state.grabberExtended;
+  for(let i=0;i<ARM_SEGMENTS;i++){
+    const segY = (i+0.5)*(ARM_MAX_LENGTH/ARM_SEGMENTS);
+    armSegments[i].visible = segY < visibleLength;
+  }
+  clawGroup.visible = visibleLength > ARM_MAX_LENGTH*0.8;
+  if(clawGroup.visible){
+    clawGroup.position.y = Math.min(visibleLength,ARM_MAX_LENGTH);
+    clawGroup.rotation.z = state.grabberHolding ? 0.5 : 0;
+  }
+}
+
+function updateProjectiles(dt){
+  for(let i=projectiles.length-1;i>=0;i--){
+    const p = projectiles[i];
+    const ud = p.userData;
+    p.position.x += ud.velocity.x*dt;
+    p.position.y += ud.velocity.y*dt;
+    ud.life -= dt;
+    
+    let remove = false;
+    
+    // Check monster hits
+    for(const m of monsters){
+      const md = m.userData;
+      if(p.position.distanceTo(m.position)<1.5){
+        md.hp -= ud.damage;
+        md.hitFlash = 0.2;
+        
+        if(ud.weaponType==='bomb'){
+          // AoE: damage nearby monsters too
+          for(const m2 of monsters){
+            if(m2===m) continue;
+            if(p.position.distanceTo(m2.position)<ud.aoe){
+              m2.userData.hp -= ud.damage*0.6;
+              m2.userData.hitFlash = 0.15;
+            }
+          }
+          // Explosion particles
+          const boomGeom = new THREE.SphereGeometry(0.08,3,3);
+          const boomMat = new THREE.MeshBasicMaterial({color:0xff6600,blending:THREE.AdditiveBlending,transparent:true,opacity:1,depthWrite:false});
+          for(let j=0;j<12;j++){
+            const part = new THREE.Mesh(boomGeom,boomMat.clone());
+            part.position.copy(p.position);
+            const ang = (j/12)*Math.PI*2;
+            part.userData = {vel:new THREE.Vector3(Math.cos(ang)*4,Math.sin(ang)*4,0),life:0.5,maxLife:0.5};
+            scene.add(part);
+            effects.push(part);
+          }
+        }
+        
+        if(ud.weaponType==='shock'){
+          md.stunned = ud.stunDuration;
+          // Electric flash
+          const sparkGeom = new THREE.SphereGeometry(0.06,3,3);
+          const sparkMat = new THREE.MeshBasicMaterial({color:0x88ccff,blending:THREE.AdditiveBlending,transparent:true,opacity:1,depthWrite:false});
+          for(let j=0;j<6;j++){
+            const part = new THREE.Mesh(sparkGeom,sparkMat.clone());
+            part.position.copy(p.position);
+            const ang = (j/6)*Math.PI*2;
+            part.userData = {vel:new THREE.Vector3(Math.cos(ang)*2,Math.sin(ang)*2,0),life:0.3,maxLife:0.3};
+            scene.add(part);
+            effects.push(part);
+          }
+        }
+        
+        if(ud.weaponType==='poison'){
+          md.poisonTicks = ud.poisonDuration;
+          md.poisonDps = ud.poisonDps;
+        }
+        
+        remove = true;
+        break;
+      }
+    }
+    
+    // Bomb: detonate on sea floor
+    if(ud.weaponType==='bomb' && p.position.y <= getTerrainHeight(p.position.x)+0.3){
+      // Floor explosion
+      for(const m of monsters){
+        if(p.position.distanceTo(m.position)<ud.aoe){
+          m.userData.hp -= ud.damage*0.5;
+          m.userData.hitFlash = 0.15;
+        }
+      }
+      const floorGeom = new THREE.SphereGeometry(0.1,3,3);
+      for(let j=0;j<18;j++){
+        const partMat = new THREE.MeshBasicMaterial({color:j%2?0xff8800:0x885533,blending:THREE.AdditiveBlending,transparent:true,opacity:1,depthWrite:false});
+        const part = new THREE.Mesh(floorGeom,partMat);
+        part.position.copy(p.position);
+        const ang = (j/18)*Math.PI*2;
+        part.userData = {vel:new THREE.Vector3(Math.cos(ang)*5,Math.sin(ang)*3+2,0),life:0.7,maxLife:0.7};
+        scene.add(part);
+        effects.push(part);
+      }
+      remove = true;
+    }
+    
+    // Lifetime or out of bounds
+    const floorY = getTerrainHeight(p.position.x);
+    if(ud.life<=0||Math.abs(p.position.y)>60||(ud.weaponType!=='bomb'&&p.position.y<floorY-1)){
+      remove = true;
+    }
+    
+    if(remove){
+      scene.remove(p);
+      projectiles.splice(i,1);
+    }
+  }
+}
+
+function updateMonsters(dt){
+  const subPos = submarine.position;
+  for(let i=monsters.length-1;i>=0;i--){
+    const m = monsters[i];
+    const d = m.userData;
+    
+    // Hit flash (takes priority)
+    if(d.hitFlash>0){
+      d.hitFlash -= dt;
+      m.children[0].material.emissive = new THREE.Color(0xff0000);
+      m.children[0].material.emissiveIntensity = d.hitFlash*10;
+    }
+    
+    // Dead?
+    if(d.hp<=0){
+      state.coins += d.reward;
+      // Spawn small coin particles
+      const coinGeom = new THREE.SphereGeometry(0.1,4,4);
+      for(let j=0;j<5;j++){
+        const coinMat = new THREE.MeshBasicMaterial({color:0xffcc00,transparent:true,opacity:1,depthWrite:false});
+        const coin = new THREE.Mesh(coinGeom,coinMat);
+        coin.position.copy(m.position);
+        coin.userData = {vel:new THREE.Vector3((Math.random()-0.5)*3,(Math.random()-0.5)*3,0),life:1,maxLife:1};
+        scene.add(coin);
+        effects.push(coin);
+      }
+      scene.remove(m);
+      monsters.splice(i,1);
+      continue;
+    }
+    
+    // Poison DoT (only if not flashing from hit)
+    if(d.poisonTicks>0){
+      d.poisonTicks -= dt;
+      d.hp -= d.poisonDps*dt;
+      if(d.hitFlash<=0){
+        m.children[0].material.emissive = new THREE.Color(0x004400);
+        m.children[0].material.emissiveIntensity = 2;
+      }
+      if(d.poisonTicks<=0){
+        d.poisonDps = 0;
+      }
+    }
+    
+    // Stun (only if not flashing from hit and not poisoned)
+    if(d.stunned>0){
+      d.stunned -= dt;
+      if(d.hitFlash<=0 && d.poisonTicks<=0){
+        m.children[0].material.emissive = new THREE.Color(0x2244aa);
+        m.children[0].material.emissiveIntensity = 3;
+      }
+      if(d.stunned<=0){
+        // Reset only if no other effect active
+        if(d.hitFlash<=0 && d.poisonTicks<=0){
+          m.children[0].material.emissive = new THREE.Color(0x000000);
+          m.children[0].material.emissiveIntensity = 0;
+        }
+      }
+      continue; // Skip AI while stunned
+    }
+    
+    // Reset emissive if no effects active
+    if(d.hitFlash<=0 && d.poisonTicks<=0 && d.stunned<=0){
+      m.children[0].material.emissive = new THREE.Color(0x000000);
+      m.children[0].material.emissiveIntensity = 0;
+    }
+    
+    // AI
+    const distToSub = m.position.distanceTo(subPos);
+    d.attackCooldown = Math.max(0,d.attackCooldown-dt);
+    
+    if(distToSub<8){
+      // Chase
+      d.state = 'chase';
+      const dir = subPos.clone().sub(m.position).normalize();
+      m.position.x += dir.x*d.speed*dt*1.5;
+      m.position.y += dir.y*d.speed*dt*1.5;
+      
+      // Face submarine
+      const angle = Math.atan2(dir.y,dir.x);
+      m.rotation.z = angle;
+      
+      // Attack when close
+      if(distToSub<2.5 && d.attackCooldown<=0){
+        state.hp -= d.damage;
+        flashDamage();
+        d.attackCooldown = 1.5;
+        if(state.hp<=0) gameOver();
+      }
+    } else {
+      // Patrol
+      d.state = 'patrol';
+      d.phase += dt*0.5;
+      const tx = d.patrolOrigin.x + Math.cos(d.phase)*d.patrolRadius;
+      const ty = d.patrolOrigin.y + Math.sin(d.phase)*d.patrolRadius;
+      m.position.x += (tx-m.position.x)*0.5*dt;
+      m.position.y += (ty-m.position.y)*0.5*dt;
+      m.rotation.z = Math.cos(d.phase)*0.2;
+    }
+    
+    // Clamp Y
+    m.position.y = Math.max(-MAX_DEPTH,Math.min(10,m.position.y));
+  }
+}
+
+function checkTreasureCollision(){
+  // Check if submarine touches treasure directly (without grabber)
+  for(const t of treasures){
+    if(t.userData.collected) continue;
+    if(submarine.position.distanceTo(t.position)<1.0){
+      t.userData.collected = true;
+      state.coins += t.userData.value;
+      state.treasures++;
+      scene.remove(t);
+      const idx = treasures.indexOf(t);
+      if(idx>-1) treasures.splice(idx,1);
+    }
+  }
+}
+
+function updateEffects(dt){
+  for(let i=effects.length-1;i>=0;i--){
+    const e = effects[i];
+    e.userData.life -= dt;
+    if(e.userData.life<=0){
+      scene.remove(e);
+      effects.splice(i,1);
+      continue;
+    }
+    // Animate position
+    e.position.x += e.userData.vel.x*dt;
+    e.position.y += e.userData.vel.y*dt;
+    // Fade out
+    const alpha = e.userData.life/e.userData.maxLife;
+    e.material.opacity = alpha * 0.8;
+    // Scale shrink
+    const s = 0.5+alpha*0.5;
+    e.scale.setScalar(s);
+  }
+}
+
+function flashDamage(){
+  dmgFlash.classList.add('active');
+  setTimeout(()=>dmgFlash.classList.remove('active'),120);
+}
+
+function gameOver(){
+  state.mode = 'gameover';
+  // Calculate bonus for depth reached
+  const depthBonus = Math.floor(Math.abs(submarine.position.y))*2;
+  state.coins += depthBonus;
+  
+  gameoverStats.innerHTML = `
+    🕐 Tauchzeit: ${formatTime(state.diveTime)}<br>
+    📏 Maximale Tiefe: ${Math.floor(Math.abs(submarine.position.y))}m<br>
+    💎 Schätze: ${state.treasures}<br>
+    🪙 Münzen gesammelt: ${state.coins - depthBonus}<br>
+    🎁 Tiefenbonus: ${depthBonus}🪙<br>
+    <b>💰 Gesamt: ${state.coins}🪙</b>
+  `;
+  
+  gameoverOverlay.classList.add('active');
+}
+
+function formatTime(t){
+  const m = Math.floor(t/60);
+  const s = Math.floor(t%60);
+  return `${m}:${s.toString().padStart(2,'0')}`;
+}
+
+function updateHUD(){
+  const maxO2 = getMaxOxygen();
+  const maxHp = getMaxHp();
+  
+  coinsEl.textContent = state.coins;
+  treasuresEl.textContent = state.treasures;
+  hpFill.style.width = Math.max(0,state.hp/maxHp*100)+'%';
+  o2Fill.style.width = Math.max(0,state.oxygen/maxO2*100)+'%';
+  diveTimeEl.textContent = formatTime(state.diveTime);
+  
+  // Depth indicator
+  const depth = Math.abs(submarine.position.y);
+  const depthPercent = Math.min(100,depth/MAX_DEPTH*100);
+  depthMarker.style.top = depthPercent+'%';
+  depthLabel.textContent = Math.floor(depth)+'m';
+}
+
+// ─── SHOP SYSTEM ─────────────────────────
+function updateShopUI(){
+  shopItems.innerHTML = '';
+  for(const [key,upg] of Object.entries(state.upgrades)){
+    const level = upg.level;
+    const maxed = level >= upg.max;
+    const cost = maxed ? '—' : upg.cost[level+1];
+    
+    const card = document.createElement('div');
+    card.className = 'shop-card';
+    
+    const effect = key==='hull'?`Rumpf: ${getMaxHp()} HP`:
+                   key==='oxygen'?`O₂: ${getMaxOxygen()}s`:
+                   key==='speed'?`Speed: ${getSubSpeed().toFixed(1)}`:
+                   key==='grabber'?`Reichweite: ${getGrabberRange().toFixed(1)}m`:
+                   key==='bomb'?`💣 Schaden: ${getWeaponDamage('bomb')} HP (AoE)`:
+                   key==='shock'?`⚡ Schaden: ${getWeaponDamage('shock')} HP + Betäubung`:
+                   `🧪 Schaden: ${getWeaponDamage('poison')} HP + Gift`;
+    
+    const icon = upg.icon||'🔧';
+    card.innerHTML = `
+      <h3>${icon} ${upg.name}</h3>
+      <p style="font-size:12px;color:#aaa">${upg.desc}</p>
+      <p style="font-size:12px;color:#8af">${effect}</p>
+      <p>Stufe ${level}/${upg.max}</p>
+      ${maxed?`<span class="owned">✅ MAX</span>`:`
+        <div class="price">${cost}🪙</div>
+        <button ${state.coins<cost?'disabled':''} onclick="buyUpgrade('${key}')">
+          ${state.coins<cost?'Zu wenig Geld':'Kaufen'}
+        </button>
+      `}
+    `;
+    shopItems.appendChild(card);
+  }
+  
+  // Zone info
+  const zoneInfo = document.createElement('div');
+  zoneInfo.style.cssText = 'width:100%;text-align:center;margin-top:16px;color:#8af;font-size:14px';
+  zoneInfo.textContent = `🌊 Zone ${state.currentZone}: ${state.zoneNames[state.currentZone-1]} | Nächste Zone in ${5-state.currentZone} Tauchgängen`;
+  shopItems.appendChild(zoneInfo);
+}
+
+window.buyUpgrade = function(key){
+  const upg = state.upgrades[key];
+  if(upg.level>=upg.max) return;
+  const cost = upg.cost[upg.level+1];
+  if(state.coins<cost) return;
+  state.coins -= cost;
+  upg.level++;
+  
+  // Increase zone after enough upgrades
+  const totalUpgrades = Object.values(state.upgrades).reduce((s,u)=>s+u.level,0);
+  if(totalUpgrades>=state.currentZone*3 && state.currentZone<state.zoneNames.length){
+    state.currentZone++;
+  }
+  
+  updateShopUI();
+};
+
+// ─── EVENT HANDLERS ──────────────────────
+diveBtn.addEventListener('click',startDive);
+restartBtn.addEventListener('click',surfaceEarly);
+
+window.addEventListener('resize',()=>{
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+});
+
+// ─── GAME LOOP ───────────────────────────
+let lastTime = performance.now();
+function animate(time){
+  requestAnimationFrame(animate);
+  const dt = (time-lastTime)/1000;
+  lastTime = time;
+  update(dt);
+  renderer.render(scene,camera);
+}
+
+// ─── INIT ────────────────────────────────
+updateShopUI();
+shopOverlay.classList.add('active');
+animate(performance.now());
+
+console.log('🌊 U-Boot Tiefsee bereit!');
+console.log('Steuerung: Pfeiltasten/WASD = Bewegen | Tab = Waffe/Greifer wechseln');
+console.log('Maus = Zielen | Klick = Greifer ausfahren / Torpedo feuern | ESC = Auftauchen');
+</script>
+</body>
+</html>

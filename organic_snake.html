@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌌 Organic Snake - Continuous Universe</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: radial-gradient(circle at center, #0a0a2a 0%, #000011 100%);
+            color: #8af8ff;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            user-select: none;
+        }
+        
+        canvas {
+            display: block;
+            cursor: none;
+        }
+        
+        .ui-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(0, 20, 40, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #00ffff;
+            backdrop-filter: blur(10px);
+        }
+        
+        .score {
+            font-size: 24px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px #00ffff;
+        }
+        
+        .instructions {
+            font-size: 12px;
+            opacity: 0.8;
+            line-height: 1.4;
+        }
+        
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 30px;
+            border-radius: 15px;
+            border: 2px solid #ff4444;
+            text-align: center;
+            z-index: 200;
+            display: none;
+        }
+        
+        .restart-btn {
+            background: linear-gradient(45deg, #ff4444, #ff8800);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            color: white;
+            font-family: inherit;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.3s;
+        }
+        
+        .restart-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px #ff4444;
+        }
+        
+        .snake-segment {
+            position: absolute;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div class="ui-container">
+        <div class="score">SCORE: <span id="score">0</span></div>
+        <div class="instructions">
+            🎮 HOLD LEFT/RIGHT ARROWS to turn smoothly<br>
+            🖱️ MOUSE to steer<br>
+            🌌 Finite universe with proper wrapping<br>
+            🌀 Smooth turn rate based on key press duration<br>
+            🐍 Organic movement physics
+        </div>
+    </div>
+    
+    <div class="game-over" id="gameOver">
+        <h2 style="color: #ff4444; margin: 0 0 10px 0;">🌌 COSMIC COLLISION</h2>
+        <p>Final Score: <span id="finalScore">0</span></p>
+        <button class="restart-btn" onclick="restartGame()">🌀 RESTART JOURNEY</button>
+    </div>
+
+    <script>
+        class OrganicSnake {
+            constructor() {
+                console.log('OrganicSnake constructor called');
+                this.canvas = document.getElementById('gameCanvas');
+                console.log('Canvas found:', this.canvas);
+                this.ctx = this.canvas.getContext('2d');
+                console.log('Canvas context:', this.ctx);
+                this.resizeCanvas();
+                
+                // Universe properties
+                this.universeSize = 800;
+                this.camera = { x: 0, y: 0 };
+                
+                // Snake properties
+                this.position = { x: 0, y: 0 };
+                this.velocity = { x: 0, y: 0 };
+                this.speed = 4;
+                this.segmentSpacing = 15;
+                this.maxTurnRate = Math.PI / 6; // 60 degrees per frame
+                this.keyTurnRate = 0; // Smooth key turning
+                this.bodyRadius = 8; // Head radius for collision detection
+                this.direction = 0; // Initial direction (right)
+                this.targetDirection = 0; // Target direction for smooth turning
+                this.wiggleTimer = 0; // Timer for natural wiggling
+                this.wiggleStrength = 0.3; // How much the snake wiggles naturally
+                
+                // Snake body
+                this.segments = [];
+                this.segmentCount = 40;
+                this.segmentSpacing = 4;
+                
+                // Food
+                this.food = [];
+                
+                // Game state
+                this.score = 0;
+                this.gameOver = false;
+                this.particles = [];
+                
+                this.initSnake();
+                this.spawnInitialFood();
+                this.setupEventListeners();
+                this.gameLoop();
+            }
+            
+            resizeCanvas() {
+                try {
+                    this.canvas.width = window.innerWidth;
+                    this.canvas.height = window.innerHeight;
+                    console.log('Canvas resized to:', this.canvas.width, 'x', this.canvas.height);
+                } catch (error) {
+                    console.error('Canvas resize failed:', error);
+                }
+            }
+            
+            initSnake() {
+                // Create initial snake body
+                for (let i = 0; i < this.segmentCount; i++) {
+                    this.segments.push({
+                        x: -i * this.segmentSpacing,
+                        y: 0
+                    });
+                }
+            }
+            
+            spawnInitialFood() {
+                this.spawnFood();
+            }
+            
+            spawnFood() {
+                const halfUniverse = this.universeSize / 2;
+                // Only spawn one food at a time
+                if (this.food.length === 0) {
+                    this.food.push({
+                        x: (Math.random() - 0.5) * this.universeSize,
+                        y: (Math.random() - 0.5) * this.universeSize,
+                        radius: 8,
+                        type: 1,
+                        pulse: 0
+                    });
+                }
+            }
+            
+            setupEventListeners() {
+                window.addEventListener('resize', () => this.resizeCanvas());
+                
+                // Key press tracking for smooth turning
+                this.keys = {};
+                document.addEventListener('keydown', (e) => {
+                    if (this.gameOver) return;
+                    this.keys[e.key.toLowerCase()] = true;
+                });
+                
+                document.addEventListener('keyup', (e) => {
+                    this.keys[e.key.toLowerCase()] = false;
+                });
+                
+                // Mouse steering for organic feel
+                this.canvas.addEventListener('mousemove', (e) => {
+                    if (this.gameOver) return;
+                    const rect = this.canvas.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+                    
+                    // Convert mouse position to universe coordinates
+                    const universeX = mouseX - this.canvas.width / 2;
+                    const universeY = mouseY - this.canvas.height / 2;
+                    
+                    // Calculate target direction
+                    this.targetDirection = Math.atan2(universeY, universeX);
+                });
+            }
+            
+            handleInput() {
+                // Smooth key turning based on key press duration
+                if (this.keys['arrowleft'] || this.keys['a']) {
+                    this.keyTurnRate = Math.max(this.keyTurnRate - 0.1, -1);
+                } else if (this.keys['arrowright'] || this.keys['d']) {
+                    this.keyTurnRate = Math.min(this.keyTurnRate + 0.1, 1);
+                } else {
+                    // Gradual return to neutral
+                    this.keyTurnRate *= 0.8;
+                    if (Math.abs(this.keyTurnRate) < 0.05) this.keyTurnRate = 0;
+                }
+                
+                // Apply key turning
+                if (this.keyTurnRate !== 0) {
+                    this.targetDirection = this.direction + this.keyTurnRate * this.maxTurnRate;
+                }
+                
+                // Smoothly interpolate to target direction
+                let angleDiff = this.targetDirection - this.direction;
+                while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                
+                this.direction += angleDiff * 0.2;
+            }
+            
+            update() {
+                if (this.gameOver) return;
+                
+                this.handleInput();
+                
+                // Natural wiggling movement - snake sways even without input
+                this.wiggleTimer += 0.1;
+                const naturalWiggle = Math.sin(this.wiggleTimer) * this.wiggleStrength * 0.3;
+                // Continuous wiggling with key input influence
+                const wiggleInfluence = 1.0 - Math.min(Math.abs(this.keyTurnRate) * 2, 1.0);
+                this.direction += naturalWiggle * wiggleInfluence;
+                
+                // Update velocity based on direction
+                this.velocity.x = Math.cos(this.direction) * this.speed;
+                this.velocity.y = Math.sin(this.direction) * this.speed;
+                
+                // Update position with continuous universe wrapping
+                this.position.x += this.velocity.x;
+                this.position.y += this.velocity.y;
+                
+                // Debug: Log movement every 60 frames
+                if (Math.random() < 0.016) {
+                    console.log('Snake moving - Position:', this.position, 'Direction:', this.direction.toFixed(2));
+                }
+                
+                // Continuous universe wrapping - head emerges opposite side
+                const halfUniverse = this.universeSize / 2;
+                if (this.position.x > halfUniverse) this.position.x = -halfUniverse;
+                if (this.position.x < -halfUniverse) this.position.x = halfUniverse;
+                if (this.position.y > halfUniverse) this.position.y = -halfUniverse;
+                if (this.position.y < -halfUniverse) this.position.y = halfUniverse;
+                
+                // Update body segments with smooth following and continuous wrapping
+                for (let i = this.segments.length - 1; i > 0; i--) {
+                    const target = this.segments[i - 1];
+                    const current = this.segments[i];
+                    
+                    // Calculate direction to target with continuous wrapping logic
+                    let dx = target.x - current.x;
+                    let dy = target.y - current.y;
+                    
+                    // Handle continuous wrapping - find shortest path across boundaries
+                    if (Math.abs(dx) > halfUniverse) {
+                        dx = dx > 0 ? dx - this.universeSize : dx + this.universeSize;
+                    }
+                    if (Math.abs(dy) > halfUniverse) {
+                        dy = dy > 0 ? dy - this.universeSize : dy + this.universeSize;
+                    }
+                    
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Move toward target with proper spacing
+                    if (distance > this.segmentSpacing) {
+                        const moveDistance = distance - this.segmentSpacing;
+                        const moveX = (dx / distance) * moveDistance;
+                        const moveY = (dy / distance) * moveDistance;
+                        
+                        current.x += moveX;
+                        current.y += moveY;
+                    }
+                    
+                    // Continuous wrapping for segments - maintain position continuity
+                    if (current.x > halfUniverse) current.x = -halfUniverse;
+                    if (current.x < -halfUniverse) current.x = halfUniverse;
+                    if (current.y > halfUniverse) current.y = -halfUniverse;
+                    if (current.y < -halfUniverse) current.y = halfUniverse;
+                }
+                
+                // Head follows actual position with continuous wrapping
+                this.segments[0].x = this.position.x;
+                this.segments[0].y = this.position.y;
+                
+                this.checkFoodCollision();
+                this.checkSelfCollision();
+                this.updateParticles();
+            }
+            
+            // Check food collision with continuous wrapping
+            checkFoodCollision() {
+                const halfUniverse = this.universeSize / 2;
+                for (let i = 0; i < this.food.length; i++) {
+                const food = this.food[i];
+                let dx = this.position.x - food.x;
+                let dy = this.position.y - food.y;
+                
+                // Handle continuous wrapping in collision detection
+                if (Math.abs(dx) > halfUniverse) {
+                    dx = dx > 0 ? dx - this.universeSize : dx + this.universeSize;
+                }
+                if (Math.abs(dy) > halfUniverse) {
+                    dy = dy > 0 ? dy - this.universeSize : dy + this.universeSize;
+                }
+                
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < this.bodyRadius + food.radius) {
+                        // Add score based on food size
+                        this.score += Math.floor(food.radius * 10);
+                        document.getElementById('score').textContent = this.score;
+                        
+                        // Create particles
+                        this.createFoodParticles(food);
+                        
+                        // Remove food and spawn new one
+                        this.food.splice(i, 1);
+                        this.spawnFood();
+                        
+                        // Grow snake
+                        this.growSnake();
+                    }
+                }
+            }
+            
+            growSnake() {
+                const lastSegment = this.segments[this.segments.length - 1];
+                // Add 3 segments for significant growth
+                for (let i = 0; i < 25; i++) {
+                    this.segments.push({
+                        x: lastSegment.x,
+                        y: lastSegment.y
+                    });
+                }
+                
+                this.segmentCount += 25;
+            }
+            
+            checkSelfCollision() {
+                const halfUniverse = this.universeSize / 2;
+                
+                // Check collision with body segments (skip first few)
+                for (let i = 5; i < this.segments.length; i++) {
+                    const segment = this.segments[i];
+                    let dx = this.position.x - segment.x;
+                    let dy = this.position.y - segment.y;
+                    
+                    // Handle continuous wrapping in self-collision detection
+                    if (Math.abs(dx) > halfUniverse) {
+                        dx = dx > 0 ? dx - this.universeSize : dx + this.universeSize;
+                    }
+                    if (Math.abs(dy) > halfUniverse) {
+                        dy = dy > 0 ? dy - this.universeSize : dy + this.universeSize;
+                    }
+                    
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    const segmentRadius = this.bodyRadius * (1 - i / (this.segments.length * 1.5));
+                    
+                    if (distance < segmentRadius) {
+                        this.gameOver = true;
+                        this.showGameOver();
+                        break;
+                    }
+                }
+            }
+            
+            createFoodParticles(food) {
+                const colors = ['#ff4444', '#44ff44', '#4444ff'];
+                const particleCount = 15 + Math.floor(food.radius * 3);
+                
+                for (let i = 0; i < particleCount; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 1 + Math.random() * 3;
+                    const size = 1 + Math.random() * 3;
+                    
+                    this.particles.push({
+                        x: food.x,
+                        y: food.y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        radius: size,
+                        color: colors[food.type],
+                        life: 1.0,
+                        decay: 0.02 + Math.random() * 0.03
+                    });
+                }
+            }
+            
+            updateParticles() {
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const particle = this.particles[i];
+                    particle.x += particle.vx;
+                    particle.y += particle.vy;
+                    particle.life -= particle.decay;
+                    
+                    if (particle.life <= 0) {
+                        this.particles.splice(i, 1);
+                    }
+                }
+            }
+            
+            render() {
+                // Clear canvas completely
+                this.ctx.fillStyle = 'rgba(10, 10, 42, 1.0)';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Draw stars
+                this.ctx.fillStyle = '#ffffff';
+                for (let i = 0; i < 1000; i++) {
+                    const x = (i * 123.456) % this.canvas.width;
+                    const y = (i * 234.567) % this.canvas.height;
+                    const size = (i % 3) * 0.5;
+                    this.ctx.fillRect(x, y, size, size);
+                }
+                
+                // Universe boundary
+                this.ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(
+                    this.canvas.width / 2 - this.universeSize / 2,
+                    this.canvas.height / 2 - this.universeSize / 2,
+                    this.universeSize,
+                    this.universeSize
+                );
+                
+                // Draw food
+                this.food.forEach(food => {
+                    food.pulse += 0.05;
+                    const pulseSize = Math.sin(food.pulse) * 0.5 + 1;
+                    
+                    const screenX = food.x + this.canvas.width / 2;
+                    const screenY = food.y + this.canvas.height / 2;
+                    
+                    const colors = ['#ff4444', '#44ff44', '#4444ff'];
+                    const glows = ['rgba(255, 68, 68, 0.3)', 'rgba(68, 255, 68, 0.3)', 'rgba(68, 68, 255, 0.3)'];
+                    
+                    // Glow effect
+                    this.ctx.fillStyle = glows[food.type];
+                    this.ctx.beginPath();
+                    this.ctx.arc(screenX, screenY, food.radius * pulseSize * 2, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                    // Food body
+                    this.ctx.fillStyle = colors[food.type];
+                    this.ctx.beginPath();
+                    this.ctx.arc(screenX, screenY, food.radius * pulseSize, 0, Math.PI * 2);
+                    this.ctx.fill();
+                });
+                
+                // Draw snake body
+                for (let i = this.segments.length - 1; i >= 0; i--) {
+                    const segment = this.segments[i];
+                    const progress = i / this.segments.length;
+                    
+                    const screenX = segment.x + this.canvas.width / 2;
+                    const screenY = segment.y + this.canvas.height / 2;
+                    
+                    // Calculate radius dynamically from array position - larger tail
+                    const radius = 8 * (1 - i / (this.segments.length * 1.5));
+                    
+                    // Color gradient from head to tail - brighter tail
+                    const hue = 180 + progress * 60;
+                    const alpha = 0.6 + progress * 0.4; // Brighter minimum alpha
+                    
+                    // Segment glow - more visible
+                    this.ctx.fillStyle = `hsla(${hue}, 100%, 70%, ${alpha * 0.5})`;
+                    this.ctx.beginPath();
+                    this.ctx.arc(screenX, screenY, radius * 1.8, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                    // Segment body - brighter and more visible
+                    this.ctx.fillStyle = `hsla(${hue}, 100%, 80%, ${alpha})`;
+                    this.ctx.beginPath();
+                    this.ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+                
+                // Draw direction indicator
+                const indicatorLength = 30;
+                const indicatorX = this.position.x + Math.cos(this.direction) * indicatorLength + this.canvas.width / 2;
+                const indicatorY = this.position.y + Math.sin(this.direction) * indicatorLength + this.canvas.height / 2;
+                
+                this.ctx.strokeStyle = '#00ffff';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.position.x + this.canvas.width / 2, this.position.y + this.canvas.height / 2);
+                this.ctx.lineTo(indicatorX, indicatorY);
+                this.ctx.stroke();
+                
+                // Draw particles
+                this.particles.forEach(particle => {
+                    const screenX = particle.x + this.canvas.width / 2;
+                    const screenY = particle.y + this.canvas.height / 2;
+                    
+                    this.ctx.globalAlpha = particle.life;
+                    this.ctx.fillStyle = particle.color;
+                    this.ctx.beginPath();
+                    this.ctx.arc(screenX, screenY, particle.radius, 0, Math.PI * 2);
+                    this.ctx.fill();
+                });
+                this.ctx.globalAlpha = 1.0;
+            }
+            
+            showGameOver() {
+                document.getElementById('finalScore').textContent = this.score;
+                document.getElementById('gameOver').style.display = 'block';
+            }
+            
+            gameLoop() {
+                console.log('Game loop running');
+                this.update();
+                this.render();
+                requestAnimationFrame(() => this.gameLoop());
+            }
+        }
+        
+        let game;
+        
+        function initGame() {
+            game = new OrganicSnake();
+        }
+        
+        function restartGame() {
+            document.getElementById('gameOver').style.display = 'none';
+            game = new OrganicSnake();
+        }
+        
+        // Start the game
+        window.addEventListener('load', () => {
+            console.log('Game loading...');
+            try {
+                initGame();
+                console.log('Game started successfully!');
+            } catch (error) {
+                console.error('Game failed to start:', error);
+            }
+        });
+    </script>
+</body>
+</html>

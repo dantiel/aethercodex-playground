@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stunning 3D Solar System with Asteroid Atlas</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+        
+        canvas {
+            display: block;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h2>🌌 Solar System 3D Simulation</h2>
+        <p>Planets + Asteroid Atlas</p>
+    </div>
+    
+    <div id="controls">
+        <p>🖱️ Click & Drag: Rotate View</p>
+        <p>🖱️ Scroll: Zoom In/Out</p>
+        <p>🌍 Follow: <select id="followObject">
+            <option value="none">Free Camera</option>
+            <option value="sun">Sun</option>
+            <option value="mercury">Mercury</option>
+            <option value="venus">Venus</option>
+            <option value="earth">Earth</option>
+            <option value="mars">Mars</option>
+            <option value="jupiter">Jupiter</option>
+            <option value="saturn">Saturn</option>
+            <option value="uranus">Uranus</option>
+            <option value="neptune">Neptune</option>
+            <option value="atlas">Asteroid Atlas</option>
+        </select></p>
+    </div>
+    
+    <div class="loading" id="loading">Loading Solar System...</div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+        
+        // Controls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 5;
+        controls.maxDistance = 5000;
+        
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x333333);
+        scene.add(ambientLight);
+        
+        const sunLight = new THREE.PointLight(0xffffff, 2, 10000);
+        sunLight.castShadow = true;
+        scene.add(sunLight);
+        
+        // Stars background
+        function createStars() {
+            const starsGeometry = new THREE.BufferGeometry();
+            const starsMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.7,
+                transparent: true
+            });
+            
+            const starsVertices = [];
+            for (let i = 0; i < 10000; i++) {
+                const x = (Math.random() - 0.5) * 2000;
+                const y = (Math.random() - 0.5) * 2000;
+                const z = (Math.random() - 0.5) * 2000;
+                starsVertices.push(x, y, z);
+            }
+            
+            starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starsVertices, 3));
+            const starField = new THREE.Points(starsGeometry, starsMaterial);
+            scene.add(starField);
+        }
+        
+        // Celestial body class
+        class CelestialBody {
+            constructor(name, radius, color, distance, speed, hasRings = false) {
+                this.name = name;
+                this.radius = radius;
+                this.distance = distance;
+                this.speed = speed;
+                this.angle = Math.random() * Math.PI * 2;
+                
+                // Create geometry and material
+                const geometry = new THREE.SphereGeometry(radius, 32, 32);
+                const material = new THREE.MeshPhongMaterial({ 
+                    color: color,
+                    shininess: 30
+                });
+                
+                this.mesh = new THREE.Mesh(geometry, material);
+                this.mesh.castShadow = true;
+                this.mesh.receiveShadow = true;
+                
+                // Create orbit path
+                this.orbit = new THREE.Line(
+                    new THREE.BufferGeometry().setFromPoints(this.createOrbitPoints()),
+                    new THREE.LineBasicMaterial({ color: 0x444444, transparent: true, opacity: 0.3 })
+                );
+                scene.add(this.orbit);
+                
+                // Add rings for Saturn
+                if (hasRings) {
+                    const ringGeometry = new THREE.RingGeometry(radius * 1.5, radius * 2.2, 64);
+                    const ringMaterial = new THREE.MeshPhongMaterial({
+                        color: 0xfaf0be,
+                        side: THREE.DoubleSide,
+                        transparent: true,
+                        opacity: 0.8
+                    });
+                    this.rings = new THREE.Mesh(ringGeometry, ringMaterial);
+                    this.rings.rotation.x = Math.PI / 2;
+                    this.mesh.add(this.rings);
+                }
+                
+                // Label
+                this.createLabel();
+            }
+            
+            createOrbitPoints() {
+                const points = [];
+                for (let i = 0; i <= 64; i++) {
+                    const angle = (i / 64) * Math.PI * 2;
+                    points.push(new THREE.Vector3(
+                        Math.cos(angle) * this.distance,
+                        0,
+                        Math.sin(angle) * this.distance
+                    ));
+                }
+                return points;
+            }
+            
+            createLabel() {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = 256;
+                canvas.height = 64;
+                
+                context.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+                context.font = '24px Arial';
+                context.fillStyle = 'white';
+                context.textAlign = 'center';
+                context.fillText(this.name, canvas.width / 2, canvas.height / 2 + 8);
+                
+                const texture = new THREE.CanvasTexture(canvas);
+                const material = new THREE.SpriteMaterial({ map: texture });
+                this.label = new THREE.Sprite(material);
+                this.label.scale.set(20, 5, 1);
+                this.label.position.y = this.radius + 2;
+                this.mesh.add(this.label);
+            }
+            
+            update(deltaTime) {
+                this.angle += this.speed * deltaTime;
+                this.mesh.position.x = Math.cos(this.angle) * this.distance;
+                this.mesh.position.z = Math.sin(this.angle) * this.distance;
+                
+                // Rotate the body
+                this.mesh.rotation.y += 0.01;
+            }
+        }
+        
+        // Create celestial bodies
+        const bodies = [];
+        
+        // Sun (stationary at center)
+        const sunGeometry = new THREE.SphereGeometry(10, 32, 32);
+        const sunMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0xffff00,
+            emissive: 0xffff00,
+            emissiveIntensity: 1
+        });
+        const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+        sun.name = "sun";
+        scene.add(sun);
+        sunLight.position.copy(sun.position);
+        
+        // Planets (scaled for visibility)
+        bodies.push(new CelestialBody("Mercury", 2, 0x8c8c8c, 30, 0.04));
+        bodies.push(new CelestialBody("Venus", 3, 0xe39e54, 50, 0.015));
+        bodies.push(new CelestialBody("Earth", 3.2, 0x6b93d6, 70, 0.01));
+        bodies.push(new CelestialBody("Mars", 2.5, 0xc1440e, 90, 0.008));
+        
+        // Asteroid Belt
+        function createAsteroidBelt() {
+            const beltGeometry = new THREE.BufferGeometry();
+            const beltMaterial = new THREE.PointsMaterial({
+                color: 0x888888,
+                size: 0.5,
+                transparent: true
+            });
+            
+            const beltVertices = [];
+            for (let i = 0; i < 2000; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 100 + Math.random() * 40;
+                const x = Math.cos(angle) * distance;
+                const z = Math.sin(angle) * distance;
+                const y = (Math.random() - 0.5) * 5;
+                beltVertices.push(x, y, z);
+            }
+            
+            beltGeometry.setAttribute('position', new THREE.Float32BufferAttribute(beltVertices, 3));
+            const asteroidBelt = new THREE.Points(beltGeometry, beltMaterial);
+            scene.add(asteroidBelt);
+        }
+        
+        bodies.push(new CelestialBody("Jupiter", 8, 0xc19b6b, 140, 0.004));
+        bodies.push(new CelestialBody("Saturn", 7, 0xfad5a5, 180, 0.003, true));
+        bodies.push(new CelestialBody("Uranus", 5, 0x4fd0e7, 220, 0.002));
+        bodies.push(new CelestialBody("Neptune", 5, 0x4b70dd, 260, 0.001));
+        
+        // Asteroid Atlas (special attention)
+        const atlasGeometry = new THREE.SphereGeometry(1, 16, 16);
+        const atlasMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0xff6b6b,
+            emissive: 0xff0000,
+            emissiveIntensity: 0.3
+        });
+        const atlas = new THREE.Mesh(atlasGeometry, atlasMaterial);
+        atlas.name = "atlas";
+        atlas.castShadow = true;
+        scene.add(atlas);
+        
+        // Add all bodies to scene
+        bodies.forEach(body => {
+            scene.add(body.mesh);
+        });
+        
+        // Camera position
+        camera.position.set(0, 100, 300);
+        controls.update();
+        
+        // Animation
+        const clock = new THREE.Clock();
+        let followTarget = null;
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const deltaTime = clock.getDelta();
+            
+            // Update planets
+            bodies.forEach(body => {
+                body.update(deltaTime);
+            });
+            
+            // Update Atlas with unique orbit
+            const atlasAngle = clock.getElapsedTime() * 0.02;
+            const atlasDistance = 120 + Math.sin(clock.getElapsedTime() * 0.5) * 10;
+            atlas.position.x = Math.cos(atlasAngle) * atlasDistance;
+            atlas.position.z = Math.sin(atlasAngle) * atlasDistance;
+            atlas.position.y = Math.sin(clock.getElapsedTime() * 2) * 5;
+            atlas.rotation.x += 0.02;
+            atlas.rotation.y += 0.03;
+            
+            // Follow selected object
+            if (followTarget) {
+                let targetPosition;
+                if (followTarget === 'sun') {
+                    targetPosition = sun.position;
+                } else if (followTarget === 'atlas') {
+                    targetPosition = atlas.position;
+                } else {
+                    const body = bodies.find(b => b.name.toLowerCase() === followTarget);
+                    if (body) targetPosition = body.mesh.position;
+                }
+                
+                if (targetPosition) {
+                    camera.position.lerp(targetPosition.clone().add(new THREE.Vector3(0, 20, 50)), 0.05);
+                    controls.target.lerp(targetPosition, 0.05);
+                }
+            }
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        // Event listeners
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        document.getElementById('followObject').addEventListener('change', (e) => {
+            followTarget = e.target.value === 'none' ? null : e.target.value;
+        });
+        
+        // Initialize
+        createStars();
+        createAsteroidBelt();
+        document.getElementById('loading').style.display = 'none';
+        animate();
+    </script>
+</body>
+</html>
