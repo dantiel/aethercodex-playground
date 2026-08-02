@@ -50,6 +50,28 @@ canvas{display:block}
 #controls-hint kbd{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:5px;padding:2px 7px;font-family:inherit;font-size:12px}
 #dmg-flash{position:fixed;inset:0;pointer-events:none;z-index:50;background:radial-gradient(ellipse at center,rgba(255,0,0,0.5) 0%,transparent 70%);opacity:0;transition:opacity 0.1s}
 #dmg-flash.active{opacity:1;transition:opacity 0s}
+/* ── Virtual Joysticks (mobile) ── */
+#joystick-left,#joystick-right{position:fixed;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.18);z-index:30;display:none;align-items:center;justify-content:center}
+#joystick-left{bottom:50px;left:30px}
+#joystick-right{bottom:50px;right:30px}
+.joystick-thumb{width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.35);pointer-events:none;transition:background 0.15s}
+.joystick-thumb.active{background:rgba(255,255,255,0.55)}
+#touch-buttons{position:fixed;top:70px;right:10px;display:none;flex-direction:column;gap:6px;z-index:30}
+.touch-btn{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:10px;color:#fff;padding:8px 10px;font-size:20px;cursor:pointer;min-width:44px;min-height:44px}
+.touch-btn.active{background:rgba(255,255,255,0.3);border-color:rgba(255,255,255,0.5)}
+#touch-fire{position:fixed;bottom:50px;left:50%;transform:translateX(-50%);width:70px;height:70px;border-radius:50%;background:rgba(255,80,80,0.25);border:2px solid rgba(255,100,100,0.4);z-index:30;display:none;align-items:center;justify-content:center;font-size:28px;color:#fff}
+#landscape-prompt{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.92);justify-content:center;align-items:center;flex-direction:column;color:#fff;text-align:center;font-size:22px}
+#landscape-prompt .rotate-icon{font-size:80px;animation:rotHint 2s ease-in-out infinite}
+@keyframes rotHint{0%,100%{transform:rotate(0deg)}50%{transform:rotate(90deg)}}
+@media (hover:none) and (pointer:coarse){
+  #joystick-left,#joystick-right,#touch-buttons,#touch-fire{display:flex}
+  #crosshair{display:none}
+  #controls-hint{bottom:190px}
+}
+@media (orientation:portrait) and (hover:none) and (pointer:coarse){
+  #landscape-prompt{display:flex}
+  #hud,#joystick-left,#joystick-right,#touch-buttons,#touch-fire{display:none}
+}
 </style>
 </head>
 <body>
@@ -64,6 +86,16 @@ canvas{display:block}
 <div id="depth-indicator"><div id="depth-marker" style="top:10%"></div><div id="depth-label">0m</div></div>
 <div id="mode-indicator" class="grabber">🦾 GREIFER</div>
 <div id="crosshair"></div>
+<div id="landscape-prompt"><div class="rotate-icon">📱</div><br>Bitte drehe dein Gerät<br>ins Querformat</div>
+<div id="joystick-left"><div class="joystick-thumb" id="thumb-left"></div></div>
+<div id="joystick-right"><div class="joystick-thumb" id="thumb-right"></div></div>
+<div id="touch-fire">🔥</div>
+<div id="touch-buttons">
+  <button class="touch-btn active" id="btn-grabber">🦾</button>
+  <button class="touch-btn" id="btn-bomb">💣</button>
+  <button class="touch-btn" id="btn-shock">⚡</button>
+  <button class="touch-btn" id="btn-poison">🧪</button>
+</div>
 <div id="shop-overlay">
 <div class="shop-title">🔧 U-Boot Werkstatt</div>
 <div class="shop-items" id="shop-items"></div>
@@ -75,7 +107,7 @@ canvas{display:block}
 <button id="restart-btn">🔄 Zurück zur Werkstatt</button>
 <button id="surface-btn" style="display:none">🏠 Auftauchen</button>
 </div>
-<div id="controls-hint">🎮 <kbd>⬆⬇⬅➡</kbd> oder <kbd>WASD</kbd> = Fahren &nbsp;|&nbsp; <kbd>Tab</kbd> = Greifer↔Waffe &nbsp;|&nbsp; 🖱️ Klick = Benutzen &nbsp;|&nbsp; <kbd>ESC</kbd> = Auftauchen</div>
+<div id="controls-hint">🎮 <kbd>⬆⬇⬅➡</kbd> oder <kbd>WASD</kbd> = Fahren &nbsp;|&nbsp; <kbd>Tab</kbd> = Waffe wechseln &nbsp;|&nbsp; <kbd>1-3</kbd> = Direktwahl &nbsp;|&nbsp; <kbd>Q</kbd> = Greifer &nbsp;|&nbsp; 🖱️ Klick = Benutzen &nbsp;|&nbsp; <kbd>ESC</kbd> = Auftauchen</div>
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}
 </script>
@@ -106,6 +138,132 @@ const restartBtn = document.getElementById('restart-btn');
 const surfaceBtn = document.getElementById('surface-btn');
 const controlsHint = document.getElementById('controls-hint');
 const dmgFlash = document.getElementById('dmg-flash');
+const joyLeft = document.getElementById('joystick-left');
+const joyRight = document.getElementById('joystick-right');
+const thumbLeft = document.getElementById('thumb-left');
+const thumbRight = document.getElementById('thumb-right');
+const touchFire = document.getElementById('touch-fire');
+const btnGrabber = document.getElementById('btn-grabber');
+const btnBomb = document.getElementById('btn-bomb');
+const btnShock = document.getElementById('btn-shock');
+const btnPoison = document.getElementById('btn-poison');
+const landscapePrompt = document.getElementById('landscape-prompt');
+
+// ─── TOUCH DEVICE DETECTION ───────────────
+const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+// ─── VIRTUAL JOYSTICKS ────────────────────
+class VirtualJoystick {
+  constructor(baseEl, thumbEl) {
+    this.base = baseEl; this.thumb = thumbEl;
+    this.active = false; this.touchId = null;
+    this.dx = 0; this.dy = 0;
+    this._bind();
+  }
+  _bind() {
+    this.base.addEventListener('touchstart', e => {
+      e.preventDefault();
+      if (this.active) return;
+      const t = e.changedTouches[0];
+      this.touchId = t.identifier;
+      this.active = true;
+      this.thumb.classList.add('active');
+      this._update(t);
+    });
+    this.base.addEventListener('touchmove', e => {
+      e.preventDefault();
+      for (const t of e.changedTouches) {
+        if (t.identifier === this.touchId) { this._update(t); break; }
+      }
+    });
+    const end = e => {
+      for (const t of e.changedTouches) {
+        if (t.identifier === this.touchId) {
+          this.active = false; this.touchId = null;
+          this.dx = 0; this.dy = 0;
+          this.thumb.style.transform = 'translate(-50%,-50%)';
+          this.thumb.classList.remove('active');
+          break;
+        }
+      }
+    };
+    this.base.addEventListener('touchend', end);
+    this.base.addEventListener('touchcancel', end);
+  }
+  _update(touch) {
+    const rect = this.base.getBoundingClientRect();
+    const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+    const r = rect.width/2 - 12;
+    let dx = touch.clientX - cx, dy = touch.clientY - cy;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    if (dist > r) { dx = dx/dist*r; dy = dy/dist*r; }
+    this.dx = dx / r;
+    this.dy = dy / r;
+    this.thumb.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  }
+  reset() { this.dx = 0; this.dy = 0; this.active = false; this.thumb.style.transform = 'translate(-50%,-50%)'; this.thumb.classList.remove('active'); }
+}
+
+let moveJoystick, aimJoystick;
+if (isTouchDevice) {
+  moveJoystick = new VirtualJoystick(joyLeft, thumbLeft);
+  aimJoystick = new VirtualJoystick(joyRight, thumbRight);
+}
+
+// ─── TOUCH BUTTONS ────────────────────────
+function updateTouchBtnHighlight() {
+  [btnGrabber,btnBomb,btnShock,btnPoison].forEach(b=>b.classList.remove('active'));
+  if (state.mode_indicator === 'grabber') btnGrabber.classList.add('active');
+  else if (state.currentWeapon === 'bomb') btnBomb.classList.add('active');
+  else if (state.currentWeapon === 'shock') btnShock.classList.add('active');
+  else if (state.currentWeapon === 'poison') btnPoison.classList.add('active');
+}
+btnGrabber.addEventListener('touchend', e => {
+  e.preventDefault();
+  state.mode_indicator = 'grabber';
+  updateModeIndicator();
+  updateTouchBtnHighlight();
+});
+btnBomb.addEventListener('touchend', e => {
+  e.preventDefault();
+  state.mode_indicator = 'weapon';
+  state.currentWeapon = 'bomb';
+  updateModeIndicator();
+  updateTouchBtnHighlight();
+});
+btnShock.addEventListener('touchend', e => {
+  e.preventDefault();
+  state.mode_indicator = 'weapon';
+  state.currentWeapon = 'shock';
+  updateModeIndicator();
+  updateTouchBtnHighlight();
+});
+btnPoison.addEventListener('touchend', e => {
+  e.preventDefault();
+  state.mode_indicator = 'weapon';
+  state.currentWeapon = 'poison';
+  updateModeIndicator();
+  updateTouchBtnHighlight();
+});
+touchFire.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (state.mode !== 'diving') return;
+  if (state.mode_indicator === 'grabber') {
+    if (state.grabberHolding) {
+      // Release
+    } else if (state.grabberExtended < 0.1) {
+      state.grabberExtended = 0.01;
+    } else {
+      state.grabberExtended = 0;
+    }
+  } else {
+    fireWeapon();
+  }
+});
+// Prevent double-tap zoom on buttons
+[touchFire,btnGrabber,btnBomb,btnShock,btnPoison].forEach(el => {
+  el.addEventListener('touchstart', e => e.preventDefault());
+});
 
 // ─── THREE.JS SETUP ──────────────────────
 const renderer = new THREE.WebGLRenderer({antialias:true,alpha:false});
@@ -636,13 +794,27 @@ window.addEventListener('click',()=>{
 });
 window.addEventListener('contextmenu',e=>e.preventDefault());
 
-// Toggle grabber/weapon with Tab or Q
+// Weapon switching: Tab cycles, 1/2/3 direct, Q=grabber
+const WEAPON_CYCLE = ['grabber','bomb','shock','poison'];
 window.addEventListener('keydown',e=>{
-  if(e.key==='Tab'||e.key==='q'){
+  if(e.key==='Tab'){
     e.preventDefault();
-    state.mode_indicator = state.mode_indicator==='grabber'?'weapon':'grabber';
+    const idx = WEAPON_CYCLE.indexOf(state.mode_indicator==='grabber'?'grabber':state.currentWeapon);
+    const next = WEAPON_CYCLE[(idx+1)%WEAPON_CYCLE.length];
+    if(next==='grabber'){ state.mode_indicator='grabber'; }
+    else { state.mode_indicator='weapon'; state.currentWeapon=next; }
     updateModeIndicator();
+    if(isTouchDevice) updateTouchBtnHighlight();
   }
+  if(e.key==='q'||e.key==='Q'){
+    e.preventDefault();
+    state.mode_indicator = 'grabber';
+    updateModeIndicator();
+    if(isTouchDevice) updateTouchBtnHighlight();
+  }
+  if(e.key==='1'){ e.preventDefault(); state.mode_indicator='weapon'; state.currentWeapon='bomb'; updateModeIndicator(); if(isTouchDevice) updateTouchBtnHighlight(); }
+  if(e.key==='2'){ e.preventDefault(); state.mode_indicator='weapon'; state.currentWeapon='shock'; updateModeIndicator(); if(isTouchDevice) updateTouchBtnHighlight(); }
+  if(e.key==='3'){ e.preventDefault(); state.mode_indicator='weapon'; state.currentWeapon='poison'; updateModeIndicator(); if(isTouchDevice) updateTouchBtnHighlight(); }
   if(e.key==='Escape'&&state.mode==='diving'){
     surfaceEarly();
   }
@@ -813,13 +985,18 @@ function update(dt){
     state.coins += 2 + state.currentZone;
   }
   
-  // Submarine movement
+  // Submarine movement (keyboard + virtual joystick)
   const speed = getSubSpeed();
   let moveX=0, moveY=0;
   if(state.keys['ArrowLeft']||state.keys['a']) moveX = -1;
   if(state.keys['ArrowRight']||state.keys['d']) moveX = 1;
   if(state.keys['ArrowUp']||state.keys['w']) moveY = 1;
   if(state.keys['ArrowDown']||state.keys['s']) moveY = -1;
+  // Virtual joystick input
+  if (isTouchDevice && moveJoystick && moveJoystick.active) {
+    moveX = moveJoystick.dx;
+    moveY = moveJoystick.dy;
+  }
   
   const moveLen = Math.sqrt(moveX*moveX+moveY*moveY);
   if(moveLen>1){ moveX/=moveLen; moveY/=moveLen; }
@@ -840,6 +1017,12 @@ function update(dt){
   
   // Track world offset
   state.worldOffset = submarine.position.x;
+  
+  // Feed virtual joystick aim into mouse state
+  if (isTouchDevice && aimJoystick && aimJoystick.active) {
+    state.mouse.x = aimJoystick.dx;
+    state.mouse.y = aimJoystick.dy;
+  }
   
   // Update terrain - shift segments
   updateTerrain();

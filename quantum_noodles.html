@@ -1,819 +1,813 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quantum Noodle Dynamics</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background: #000;
-            font-family: 'Courier New', monospace;
-            color: #0ff;
-            overflow: hidden;
-        }
-        
-        #container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-        }
-        
-        canvas {
-            display: block;
-        }
-        
-        #controls {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(0, 20, 40, 0.8);
-            padding: 20px;
-            border-radius: 10px;
-            border: 1px solid #0ff;
-            max-width: 300px;
-        }
-        
-        .control-group {
-            margin-bottom: 15px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-size: 12px;
-            color: #8ff;
-        }
-        
-        input[type="range"] {
-            width: 100%;
-            margin-bottom: 10px;
-        }
-        
-        .value {
-            font-size: 11px;
-            color: #ff0;
-            float: right;
-        }
-        
-        button {
-            background: #0ff;
-            border: 1px solid #0cc;
-            padding: 5px 10px;
-            margin: 0 2px;
-            border-radius: 3px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        
-        .flow-btn:hover {
-            background: #0dd;
-        }
-        
-        .flow-btn[data-flow="knot"] {
-            background: #ff0;
-        }
-        
-        #stats {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(0, 20, 40, 0.8);
-            padding: 15px;
-            border-radius: 10px;
-            border: 1px solid #0ff;
-            font-size: 11px;
-        }
-        
-        .flow-type {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            margin-top: 5px;
-        }
-        
-        .flow-btn {
-            flex: 1;
-            min-width: 60px;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Noodle Dynamics — ÆtherCodex</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#020812;overflow:hidden;font-family:'Courier New',monospace;color:#8ff;user-select:none}
+canvas{display:block;position:fixed;top:0;left:0}
+#controls{position:fixed;top:16px;left:16px;background:rgba(4,16,40,.85);padding:16px 18px;border-radius:12px;border:1px solid rgba(0,200,255,.25);max-width:280px;z-index:10;backdrop-filter:blur(8px)}
+#controls h3{margin:0 0 12px;font-size:14px;color:#0ff;letter-spacing:1px}
+.ctrl{margin-bottom:12px}
+.ctrl label{display:block;font-size:11px;color:#6af;margin-bottom:3px}
+.ctrl input[type=range]{width:100%;accent-color:#0ff;height:4px;cursor:pointer}
+.ctrl .val{float:right;font-size:10px;color:#ff0}
+#flows{display:flex;gap:4px;margin:10px 0;flex-wrap:wrap}
+.flow-btn{flex:1;min-width:52px;padding:6px 4px;font-size:10px;font-family:inherit;background:rgba(0,200,255,.1);border:1px solid rgba(0,200,255,.3);color:#8ff;border-radius:6px;cursor:pointer;transition:all .25s}
+.flow-btn:hover{background:rgba(0,200,255,.25);color:#fff}
+.flow-btn.active{background:rgba(0,200,255,.4);border-color:#0ff;color:#fff;box-shadow:0 0 12px rgba(0,200,255,.4)}
+#toggleQ{width:100%;padding:8px;margin:8px 0 4px;font-family:inherit;font-size:11px;background:rgba(255,0,128,.12);border:1px solid rgba(255,0,128,.4);color:#f8a;border-radius:6px;cursor:pointer;transition:all .25s}
+#toggleQ:hover{background:rgba(255,0,128,.25)}
+#toggleQ.on{background:rgba(255,0,128,.35);box-shadow:0 0 14px rgba(255,0,128,.35)}
+#stats{position:fixed;bottom:16px;right:16px;background:rgba(4,16,40,.85);padding:12px 16px;border-radius:10px;border:1px solid rgba(0,200,255,.2);font-size:10px;z-index:10;backdrop-filter:blur(8px);line-height:1.7}
+#stats span{color:#ff0}
+#help{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);font-size:10px;color:rgba(100,180,255,.5);z-index:10;pointer-events:none}
+</style>
 </head>
 <body>
-    <div id="container">
-        <canvas id="canvas"></canvas>
-        
-        <div id="controls">
-            <h3>🌊 Quantum Noodle Controls</h3>
-            
-            <div class="control-group">
-                <label>Quantum Coherence: <span id="coherenceValue" class="value">50%</span></label>
-                <input type="range" id="coherence" min="0" max="100" value="50">
-            </div>
-            
-            <div class="control-group">
-                <label>Noodle Elasticity: <span id="elasticityValue" class="value">100%</span></label>
-                <input type="range" id="elasticity" min="0" max="200" value="100">
-            </div>
-            
-            <div class="control-group">
-                <label>Entanglement Strength: <span id="entanglementValue" class="value">30%</span></label>
-                <input type="range" id="entanglement" min="0" max="100" value="30">
-            </div>
-            
-            <div class="control-group">
-                <label>Restriction Intensity: <span id="restrictionValue" class="value">50%</span></label>
-                <input type="range" id="restriction" min="0" max="100" value="50">
-            </div>
-            
-            <div class="control-group">
-                <label>Bending Constraint: <span id="bendingValue" class="value">80%</span></label>
-                <input type="range" id="bending" min="0" max="100" value="80">
-            </div>
-            
-            <div class="control-group">
-                <label>Distribution Force: <span id="distributionValue" class="value">30%</span></label>
-                <input type="range" id="distribution" min="0" max="100" value="30">
-            </div>
-            
-            <div class="control-group">
-                <div class="control-group">
-                    <label>Flow Type:</label>
-                    <button class="flow-btn" data-flow="natural">Natural</button>
-                    <button class="flow-btn" data-flow="turbulent">Turbulent</button>
-                    <button class="flow-btn" data-flow="quantum">Quantum</button>
-                    <button class="flow-btn" data-flow="chaotic">Chaotic</button>
-                </div>
-            </div>
-            
-            <div class="control-group">
-                <button id="toggleQuantum">Toggle Quantum Effects</button>
-                <button id="reset">Reset Noodles</button>
-            </div>
-            
-            <div class="control-group">
-                <small>Click anywhere to create restriction zones</small>
-            </div>
-        </div>
-        
-        <div id="stats">
-            <div>Noodles: <span id="noodleCount">0</span></div>
-            <div>Entanglements: <span id="entanglementCount">0</span></div>
-            <div>Restriction Zones: <span id="zoneCount">0</span></div>
-            <div>Quantum Activity: <span id="quantumActivity">0%</span></div>
-        </div>
-    </div>
+<div id="controls">
+<h3>🌀 Quantum Noodles</h3>
+<div class="ctrl"><label>Coherence <span class="val" id="coherenceVal">70%</span></label><input type="range" id="coherence" min="0" max="100" value="70"></div>
+<div class="ctrl"><label>Elasticity <span class="val" id="elasticityVal">80%</span></label><input type="range" id="elasticity" min="10" max="200" value="80"></div>
+<div class="ctrl"><label>Entanglement <span class="val" id="entanglementVal">40%</span></label><input type="range" id="entanglement" min="0" max="100" value="40"></div>
+<div class="ctrl"><label>Restriction <span class="val" id="restrictionVal">50%</span></label><input type="range" id="restriction" min="0" max="100" value="50"></div>
+<div class="ctrl"><label>Bending <span class="val" id="bendingVal">80%</span></label><input type="range" id="bending" min="0" max="100" value="80"></div>
+<div class="ctrl"><label>Distribution <span class="val" id="distributionVal">30%</span></label><input type="range" id="distribution" min="0" max="100" value="30"></div>
+<div id="flows">
+<button class="flow-btn active" data-flow="natural">🌊 Natural</button>
+<button class="flow-btn" data-flow="turbulent">🌪️ Turbulent</button>
+<button class="flow-btn" data-flow="quantum">⚛️ Quantum</button>
+<button class="flow-btn" data-flow="chaotic">🔥 Chaotic</button>
+</div>
+<button id="toggleQ" class="on">✨ Quantum Fields ON</button>
+</div>
+<div id="stats">
+<div>Noodles: <span id="noodleCount">0</span> | Fields: <span id="fieldCount">0</span></div>
+<div>Links: <span id="entanglementCount">0</span> | Zones: <span id="zoneCount">0</span></div>
+<div>Activity: <span id="quantumActivity">0%</span></div>
+</div>
+<div id="help">🖱 Click = Restrict | Space = Quantum Field | 1-4 = Flow | ↑↓ = Noodles | R = Reset</div>
+<canvas id="canvas"></canvas>
 
-    <script>
-        // Natural Noodle Dynamics Engine
-        class QuantumNoodleEngine {
-            constructor() {
-                this.canvas = document.getElementById('canvas');
-                this.ctx = this.canvas.getContext('2d');
-                this.noodles = [];
-                this.restrictionZones = [];
-                this.entanglements = [];
-                this.quantumFields = [];
-                
-                this.params = {
-                    quantumCoherence: 0.7,
-                    noodleElasticity: 0.8,
-                    entanglementStrength: 0.4, // Lower for more natural distribution
-                    restrictionIntensity: 0.5,
-                    flowType: 'natural', // New flow type for natural noodle behavior
-                    quantumEffects: true,
-                    bendingConstraint: 0.8, // New: limit bending tightness
-                    distributionForce: 0.3 // New: force for even distribution
-                };
-                
-                this.setupCanvas();
-                this.createNoodles(8); // More noodles for better distribution
-                this.setupEventListeners();
-                
-                // Initialize with distributed quantum fields
-                for (let i = 0; i < 5; i++) {
-                    this.quantumFields.push({
-                        x: this.canvas.width / 4 + (Math.random() - 0.5) * this.canvas.width / 2,
-                        y: this.canvas.height / 4 + (Math.random() - 0.5) * this.canvas.height / 2,
-                        radius: 100 + Math.random() * 150,
-                        strength: 0.4 + Math.random() * 0.3,
-                        phase: Math.random() * Math.PI * 2,
-                        type: Math.random() > 0.7 ? 'attract' : 'repel' // Mix of attract/repel for distribution
-                    });
-                }
-                
-                this.animate();
-            }
-            
-            applyDistributionForces(noodle, point, index) {
-                // Distribution forces to prevent clumping and encourage even spacing
-                const distributionStrength = this.params.distributionForce * 0.02;
-                
-                // Repel from other noodles for better distribution
-                this.noodles.forEach(otherNoodle => {
-                    if (otherNoodle === noodle) return;
-                    
-                    otherNoodle.points.forEach(otherPoint => {
-                        const dx = point.x - otherPoint.x;
-                        const dy = point.y - otherPoint.y;
-                        const distance = Math.sqrt(dx * dx + dy * dy);
-                        
-                        if (distance < 80 && distance > 0) { // Moderate repulsion range
-                            const force = (80 - distance) * distributionStrength / distance;
-                            const angle = Math.atan2(dy, dx);
-                            
-                            point.x += Math.cos(angle) * force * 0.5;
-                            point.y += Math.sin(angle) * force * 0.5;
-                        }
-                    });
-                });
-            }
-            
-            applySelfRepulsion(noodle) {
-                // Natural self-repulsion to maintain noodle shape without preventing natural curves
-                const minDistance = noodle.thickness * 1.2; // Increased minimum distance for better shape
-                
-                for (let i = 0; i < noodle.points.length; i++) {
-                    for (let j = i + 4; j < noodle.points.length; j++) { // Skip more adjacent points for natural curves
-                        // Only apply repulsion to points that are far apart in the noodle
-                        if (Math.abs(i - j) > 6) {
-                            const point1 = noodle.points[i];
-                            const point2 = noodle.points[j];
-                            const dx = point1.x - point2.x;
-                            const dy = point1.y - point2.y;
-                            const distance = Math.sqrt(dx * dx + dy * dy);
-                            
-                            if (distance < minDistance && distance > 0) {
-                                // Very gentle repulsion that allows natural overlapping
-                                const force = (minDistance - distance) * 0.02; // Much softer force
-                                const angle = Math.atan2(dy, dx);
-                                
-                                point1.x += Math.cos(angle) * force * 0.3;
-                                point1.y += Math.sin(angle) * force * 0.3;
-                                point2.x -= Math.cos(angle) * force * 0.3;
-                                point2.y -= Math.sin(angle) * force * 0.3;
-                            }
-                        }
-                    }
-                }
-            }
-            
-            applyBoundaryAwareness(point) {
-                // Gentle boundary awareness without strong repulsion
-                const margin = 50;
-                const boundaryStrength = 0.002;
-                
-                // Left edge
-                if (point.x < margin) {
-                    point.x += boundaryStrength * (margin - point.x);
-                }
-                // Right edge
-                if (point.x > this.canvas.width - margin) {
-                    point.x -= boundaryStrength * (point.x - (this.canvas.width - margin));
-                }
-                // Top edge
-                if (point.y < margin) {
-                    point.y += boundaryStrength * (margin - point.y);
-                }
-                // Bottom edge
-                if (point.y > this.canvas.height - margin) {
-                    point.y -= boundaryStrength * (point.y - (this.canvas.height - margin));
-                }
-            }
-            
-            applyZCollisions(noodle, noodleIndex) {
-                // Natural collision detection that allows overlapping while preventing penetration
-                for (let i = noodleIndex + 1; i < this.noodles.length; i++) {
-                    const otherNoodle = this.noodles[i];
-                    const zDiff = Math.abs(noodle.zDepth - otherNoodle.zDepth);
-                    
-                    // Only check collisions when noodles are at similar Z-levels
-                    // Higher threshold allows more natural overlapping
-                    if (zDiff < 60) { // Increased Z-space threshold for natural overlapping
-                        noodle.points.forEach((point1, index1) => {
-                            otherNoodle.points.forEach((point2, index2) => {
-                                const dx = point1.x - point2.x;
-                                const dy = point1.y - point2.y;
-                                const distance = Math.sqrt(dx * dx + dy * dy);
-                                
-                                // Natural collision distance based on thickness and Z-difference
-                                const baseCollisionDistance = (noodle.thickness + otherNoodle.thickness) * 0.6;
-                                const zFactor = 1 - (zDiff / 60); // Z-based collision strength
-                                const collisionDistance = baseCollisionDistance * zFactor;
-                                
-                                if (distance < collisionDistance && distance > 0) {
-                                    // Gentle collision force that allows natural overlapping
-                                    const force = (collisionDistance - distance) * 0.15; // Softer force
-                                    const angle = Math.atan2(dy, dx);
-                                    
-                                    // Apply collision forces with Z-based weighting
-                                    const zWeight = 0.3 + zFactor * 0.4; // More natural weighting
-                                    
-                                    point1.x += Math.cos(angle) * force * zWeight;
-                                    point1.y += Math.sin(angle) * force * zWeight;
-                                    point2.x -= Math.cos(angle) * force * (1 - zWeight);
-                                    point2.y -= Math.sin(angle) * force * (1 - zWeight);
-                                }
-                            });
-                        });
-                    }
-                }
-            }
-            
-            setupCanvas() {
-                // Set canvas size to window size
-                this.canvas.width = window.innerWidth;
-                this.canvas.height = window.innerHeight;
-            }
-            
-            createNoodles(count) {
-                this.noodles = [];
-                for (let i = 0; i < count; i++) {
-                    const noodle = {
-                        points: [],
-                        thickness: 10 + Math.random() * 6, // Natural thickness variation
-                        zDepth: Math.random() * 100, // Z-depth for natural overlapping
-                        color: this.getRandomNoodleColor(), // Add color property
-                        age: 0 // Add age property for animation
-                    };
-                    
-                    // Create initial noodle shape with gentle waves
-                    const startX = 100 + Math.random() * (this.canvas.width - 200);
-                    const startY = 100 + Math.random() * (this.canvas.height - 200);
-                    const length = 20 + Math.random() * 10;
-                    
-                    for (let j = 0; j < length; j++) {
-                        const wave = Math.sin(j * 0.3) * 15; // Gentle wave pattern
-                        noodle.points.push({
-                            x: startX + j * 15 + wave,
-                            y: startY + j * 8 + Math.cos(j * 0.2) * 10,
-                            oldX: 0, oldY: 0
-                        });
-                    }
-                    
-                    this.noodles.push(noodle);
-                }
-            }
-            
-            getRandomNoodleColor() {
-                // Natural noodle colors - warm tones
-                const colors = [
-                    'rgba(255, 220, 180, 0.8)', // Light wheat
-                    'rgba(255, 200, 150, 0.8)', // Warm beige
-                    'rgba(240, 180, 120, 0.8)', // Golden wheat
-                    'rgba(255, 230, 200, 0.8)', // Cream
-                    'rgba(220, 190, 160, 0.8)', // Light brown
-                    'rgba(255, 210, 170, 0.8)', // Warm cream
-                    'rgba(240, 200, 160, 0.8)', // Soft wheat
-                    'rgba(250, 220, 180, 0.8)'  // Light golden
-                ];
-                return colors[Math.floor(Math.random() * colors.length)];
-            }
-            
-            setupEventListeners() {
-                document.getElementById('restriction').addEventListener('input', (e) => {
-                    this.params.restrictionIntensity = e.target.value / 100;
-                    document.getElementById('restrictionValue').textContent = e.target.value + '%';
-                });
-                
-                document.getElementById('bending').addEventListener('input', (e) => {
-                    this.params.bendingConstraint = e.target.value / 100;
-                    document.getElementById('bendingValue').textContent = e.target.value + '%';
-                });
-                
-                document.getElementById('distribution').addEventListener('input', (e) => {
-                    this.params.distributionForce = e.target.value / 100;
-                    document.getElementById('distributionValue').textContent = e.target.value + '%';
-                });
-                
-                // Flow type buttons
-                document.querySelectorAll('.flow-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        this.params.flowType = e.target.dataset.flow;
-                        document.querySelectorAll('.flow-btn').forEach(b => b.style.background = '#0ff');
-                        e.target.style.background = '#ff0';
-                    });
-                });
-                
-                document.getElementById('toggleQuantum').addEventListener('click', () => {
-                    this.params.quantumEffects = !this.params.quantumEffects;
-                });
-                
-                document.getElementById('reset').addEventListener('click', () => {
-                    this.createNoodles(8);
-                    this.restrictionZones = [];
-                    this.entanglements = [];
-                });
-                
-                // Click to create restriction zones
-                this.canvas.addEventListener('click', (e) => {
-                    const rect = this.canvas.getBoundingClientRect();
-                    this.restrictionZones.push({
-                        x: e.clientX - rect.left,
-                        y: e.clientY - rect.top,
-                        radius: 50 + Math.random() * 100,
-                        strength: this.params.restrictionIntensity
-                    });
-                });
-            }
-            
-            update() {
-                this.updateQuantumFields();
-                this.updateNoodles();
-                this.updateEntanglements();
-                this.updateStats();
-            }
-            
-            updateQuantumFields() {
-                if (!this.params.quantumEffects) return;
-                
-                // Generate quantum probability fields
-                if (Math.random() < 0.1) {
-                    this.quantumFields.push({
-                        x: Math.random() * this.canvas.width,
-                        y: Math.random() * this.canvas.height,
-                        radius: 50 + Math.random() * 150,
-                        strength: Math.random() * this.params.quantumCoherence,
-                        phase: Math.random() * Math.PI * 2
-                    });
-                }
-                
-                // Remove old fields
-                this.quantumFields = this.quantumFields.filter(field => field.strength > 0.01);
-            }
-            
-            updateNoodles() {
-                this.noodles.forEach((noodle, noodleIndex) => {
-                    noodle.age++;
-                    
-                    // Slowly change Z-depth for natural overlapping movement
-                    noodle.zDepth += Math.sin(noodle.age * 0.01) * 0.1;
-                    noodle.zDepth = Math.max(0, Math.min(100, noodle.zDepth));
-                    
-                    // Apply flow forces based on flow type
-                    this.applyFlowForces(noodle);
-                    
-                    // Apply quantum effects
-                    if (this.params.quantumEffects) {
-                        this.applyQuantumEffects(noodle);
-                    }
-                    
-                    // Apply restriction zones
-                    this.applyRestrictions(noodle);
-                    
-                    // Verlet integration for smooth physics
-                    this.verletIntegration(noodle);
-                    
-                    // Apply constraints and elasticity
-                    this.applyConstraints(noodle);
-                    
-                    // Check for entanglements with other noodles
-                    this.checkEntanglements(noodle, noodleIndex);
-                    
-                    // Apply Z-axis collision detection for overlapping
-                    this.applyZCollisions(noodle, noodleIndex);
-                    
-                    // Apply self-repulsion to maintain thickness and prevent collapse
-                    this.applySelfRepulsion(noodle);
-                });
-            }
-            
-            applyConstraints(noodle) {
-                // Apply bending constraints to prevent unnatural sharp turns
-                this.applyBendingConstraints(noodle);
-            }
-            
-            applyBendingConstraints(noodle) {
-                // Apply bending constraints to prevent unnatural sharp turns
-                const bendingStrength = this.params.bendingConstraint * 0.1;
-                
-                for (let i = 1; i < noodle.points.length - 1; i++) {
-                    const prevPoint = noodle.points[i - 1];
-                    const currentPoint = noodle.points[i];
-                    const nextPoint = noodle.points[i + 1];
-                    
-                    // Calculate the angle between segments
-                    const dx1 = currentPoint.x - prevPoint.x;
-                    const dy1 = currentPoint.y - prevPoint.y;
-                    const dx2 = nextPoint.x - currentPoint.x;
-                    const dy2 = nextPoint.y - currentPoint.y;
-                    
-                    const angle1 = Math.atan2(dy1, dx1);
-                    const angle2 = Math.atan2(dy2, dx2);
-                    const angleDiff = Math.atan2(Math.sin(angle2 - angle1), Math.cos(angle2 - angle1));
-                    
-                    // If the bend is too sharp, apply corrective force
-                    const maxBendAngle = Math.PI * 0.6; // Maximum 108 degree bend
-                    if (Math.abs(angleDiff) > maxBendAngle) {
-                        const correction = (Math.abs(angleDiff) - maxBendAngle) * bendingStrength;
-                        const correctionAngle = angleDiff > 0 ? -correction : correction;
-                        
-                        // Apply correction to smooth the bend
-                        const midAngle = (angle1 + angle2) / 2;
-                        currentPoint.x += Math.cos(midAngle + Math.PI/2) * correction * 2;
-                        currentPoint.y += Math.sin(midAngle + Math.PI/2) * correction * 2;
-                    }
-                }
-            }
-            
-            applyFlowForces(noodle) {
-                const baseFlowStrength = 0.15; // Slower for natural noodle movement
-                
-                switch (this.params.flowType) {
-                    case 'natural':
-                        // Natural noodle flow with distribution forces
-                        noodle.points.forEach((point, i) => {
-                            // Gentle distribution force for even spacing
-                            this.applyDistributionForces(noodle, point, i);
-                            
-                            // Natural wave-like movement
-                            const waveStrength = 0.8;
-                            const waveX = Math.sin(noodle.age * 0.01 + i * 0.15) * waveStrength * 0.2;
-                            const waveY = Math.cos(noodle.age * 0.008 + i * 0.12) * waveStrength * 0.15;
-                            
-                            point.x += waveX;
-                            point.y += waveY;
-                            
-                            // Gentle boundary awareness
-                            this.applyBoundaryForces(point);
-                        });
-                        break;
-                        
-                    case 'turbulent':
-                        // Swirling flow that encourages natural entanglement
-                        noodle.points.forEach((point, i) => {
-                            const angle = noodle.age * 0.015 + i * 0.08;
-                            const vortexX = Math.cos(angle) * 0.2;
-                            const vortexY = Math.sin(angle) * 0.2;
-                            
-                            point.x += vortexX * baseFlowStrength;
-                            point.y += vortexY * baseFlowStrength;
-                            
-                            this.applyDistributionForces(noodle, point, i);
-                        });
-                        break;
-                        
-                    case 'quantum':
-                        // Quantum flow with natural distribution
-                        noodle.points.forEach((point, i) => {
-                            const coherence = this.params.quantumCoherence;
-                            const quantumNoise = Math.sin(noodle.age * 0.015 + i * 0.25 + point.x * 0.003) *
-                                                Math.cos(noodle.age * 0.012 + i * 0.18 + point.y * 0.003);
-                            
-                            const flowX = Math.cos(quantumNoise) * baseFlowStrength * coherence * 0.3;
-                            const flowY = Math.sin(quantumNoise) * baseFlowStrength * coherence * 0.3;
-                            
-                            point.x += flowX;
-                            point.y += flowY;
-                            
-                            this.applyDistributionForces(noodle, point, i);
-                        });
-                        break;
-                        
-                    case 'chaotic':
-                        // Chaotic flow with bending constraints
-                        noodle.points.forEach((point, i) => {
-                            const chaosX = Math.sin(noodle.age * 0.04 + i * 0.3 + point.x * 0.008) *
-                                         Math.cos(noodle.age * 0.035 + i * 0.25 + point.y * 0.008);
-                            const chaosY = Math.cos(noodle.age * 0.05 + i * 0.4 + point.x * 0.008) *
-                                         Math.sin(noodle.age * 0.045 + i * 0.35 + point.y * 0.008);
-                            
-                            point.x += chaosX * baseFlowStrength * 0.4;
-                            point.y += chaosY * baseFlowStrength * 0.4;
-                            
-                            this.applyDistributionForces(noodle, point, i);
-                        });
-                        break;
-                }
-            }
-            
-            applyBoundaryForces(point) {
-                // Gentle boundary awareness without strong repulsion
-                const margin = 50;
-                const boundaryStrength = 0.002;
-                
-                // Left edge
-                if (point.x < margin) {
-                    point.x += boundaryStrength * (margin - point.x);
-                }
-                // Right edge
-                if (point.x > this.canvas.width - margin) {
-                    point.x -= boundaryStrength * (point.x - (this.canvas.width - margin));
-                }
-                // Top edge
-                if (point.y < margin) {
-                    point.y += boundaryStrength * (margin - point.y);
-                }
-                // Bottom edge
-                if (point.y > this.canvas.height - margin) {
-                    point.y -= boundaryStrength * (point.y - (this.canvas.height - margin));
-                }
-            }
-            
-            applyQuantumEffects(noodle) {
-                // Apply quantum field effects to noodle points
-                this.quantumFields.forEach(field => {
-                    noodle.points.forEach(point => {
-                        const dx = point.x - field.x;
-                        const dy = point.y - field.y;
-                        const distance = Math.sqrt(dx * dx + dy * dy);
-                        
-                        if (distance < field.radius) {
-                            const influence = (field.radius - distance) / field.radius;
-                            const force = field.strength * influence * 0.5;
-                            const angle = Math.atan2(dy, dx);
-                            
-                            if (field.type === 'attract') {
-                                point.x -= Math.cos(angle) * force;
-                                point.y -= Math.sin(angle) * force;
-                            } else {
-                                point.x += Math.cos(angle) * force;
-                                point.y += Math.sin(angle) * force;
-                            }
-                        }
-                    });
-                });
-            }
-            
-            applyRestrictions(noodle) {
-                // Apply restriction zone effects
-                this.restrictionZones.forEach(zone => {
-                    noodle.points.forEach(point => {
-                        const dx = point.x - zone.x;
-                        const dy = point.y - zone.y;
-                        const distance = Math.sqrt(dx * dx + dy * dy);
-                        
-                        if (distance < zone.radius) {
-                            const force = (zone.radius - distance) / zone.radius * zone.strength * 0.3;
-                            const angle = Math.atan2(dy, dx);
-                            
-                            point.x += Math.cos(angle) * force;
-                            point.y += Math.sin(angle) * force;
-                        }
-                    });
-                });
-            }
-            
-            verletIntegration(noodle) {
-                // Verlet integration for smooth physics
-                const friction = 0.95;
-                
-                noodle.points.forEach(point => {
-                    const velX = point.x - point.oldX;
-                    const velY = point.y - point.oldY;
-                    
-                    point.oldX = point.x;
-                    point.oldY = point.y;
-                    
-                    point.x += velX * friction;
-                    point.y += velY * friction;
-                    
-                    // Add small random motion to prevent stagnation
-                    point.x += (Math.random() - 0.5) * 0.1;
-                    point.y += (Math.random() - 0.5) * 0.1;
-                });
-            }
-            
-            checkEntanglements(noodle, noodleIndex) {
-                // Check for entanglements with other noodles
-                for (let i = noodleIndex + 1; i < this.noodles.length; i++) {
-                    const otherNoodle = this.noodles[i];
-                    
-                    noodle.points.forEach((point1, index1) => {
-                        otherNoodle.points.forEach((point2, index2) => {
-                            const dx = point1.x - point2.x;
-                            const dy = point1.y - point2.y;
-                            const distance = Math.sqrt(dx * dx + dy * dy);
-                            
-                            // Create entanglement if points are close
-                            if (distance < 15) {
-                                const existingEntanglement = this.entanglements.find(e =>
-                                    (e.noodle1 === noodle && e.point1 === index1 && e.noodle2 === otherNoodle && e.point2 === index2) ||
-                                    (e.noodle1 === otherNoodle && e.point1 === index2 && e.noodle2 === noodle && e.point2 === index1)
-                                );
-                                
-                                if (!existingEntanglement) {
-                                    this.entanglements.push({
-                                        noodle1: noodle,
-                                        point1: index1,
-                                        noodle2: otherNoodle,
-                                        point2: index2,
-                                        strength: this.params.entanglementStrength
-                                    });
-                                }
-                            }
-                        });
-                    });
-                }
-            }
-            
-            updateEntanglements() {
-                // Update existing entanglements
-                this.entanglements.forEach(entanglement => {
-                    const point1 = entanglement.noodle1.points[entanglement.point1];
-                    const point2 = entanglement.noodle2.points[entanglement.point2];
-                    
-                    const dx = point1.x - point2.x;
-                    const dy = point1.y - point2.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    // Apply entanglement force
-                    if (distance > 5) {
-                        const force = (distance - 5) * entanglement.strength * 0.01;
-                        const angle = Math.atan2(dy, dx);
-                        
-                        point1.x -= Math.cos(angle) * force;
-                        point1.y -= Math.sin(angle) * force;
-                        point2.x += Math.cos(angle) * force;
-                        point2.y += Math.sin(angle) * force;
-                    }
-                });
-                
-                // Remove weak entanglements
-                this.entanglements = this.entanglements.filter(e => {
-                    const point1 = e.noodle1.points[e.point1];
-                    const point2 = e.noodle2.points[e.point2];
-                    const dx = point1.x - point2.x;
-                    const dy = point1.y - point2.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    return distance < 30; // Keep if still close
-                });
-            }
-            
-            updateStats() {
-                // Update statistics display
-                document.getElementById('noodleCount').textContent = this.noodles.length;
-                document.getElementById('entanglementCount').textContent = this.entanglements.length;
-                document.getElementById('zoneCount').textContent = this.restrictionZones.length;
-                
-                const activity = Math.min(100, this.entanglements.length * 5 + this.restrictionZones.length * 3);
-                document.getElementById('quantumActivity').textContent = activity + '%';
-            }
-            
-            animate() {
-                this.update();
-                this.render();
-                requestAnimationFrame(() => this.animate());
-            }
-            
-            render() {
-                // Clear canvas with slight transparency for trail effect
-                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-                
-                // Render noodles
-                this.noodles.forEach(noodle => {
-                    this.renderNoodle(noodle);
-                });
-                
-                // Render restriction zones
-                this.restrictionZones.forEach(zone => {
-                    this.ctx.beginPath();
-                    this.ctx.arc(zone.x, zone.y, zone.radius, 0, Math.PI * 2);
-                    this.ctx.strokeStyle = 'rgba(255, 100, 100, 0.3)';
-                    this.ctx.stroke();
-                });
-            }
-            
-            renderNoodle(noodle) {
-                // Render noodle with Z-depth based opacity
-                const opacity = 0.3 + (noodle.zDepth / 100) * 0.7;
-                
-                // Draw filled noodle
-                this.ctx.beginPath();
-                this.ctx.moveTo(noodle.points[0].x, noodle.points[0].y);
-                
-                for (let i = 1; i < noodle.points.length; i++) {
-                    this.ctx.lineTo(noodle.points[i].x, noodle.points[i].y);
-                }
-                
-                // Handle color with opacity - ensure proper RGBA format
-                let strokeColor = noodle.color || 'rgba(255, 220, 180, 0.8)';
-                if (typeof strokeColor === 'string' && strokeColor.includes('rgba')) {
-                    // Replace the alpha value in rgba format
-                    strokeColor = strokeColor.replace(/\d+\.?\d*\)$/, opacity + ')');
-                } else if (typeof strokeColor === 'string' && strokeColor.includes('rgb')) {
-                    // Convert rgb to rgba
-                    strokeColor = strokeColor.replace('rgb', 'rgba').replace(')', ', ' + opacity + ')');
-                } else {
-                    // Fallback to default color with opacity
-                    strokeColor = `rgba(255, 220, 180, ${opacity})`;
-                }
-                
-                this.ctx.strokeStyle = strokeColor;
-                this.ctx.lineWidth = noodle.thickness;
-                this.ctx.lineCap = 'round';
-                this.ctx.lineJoin = 'round';
-                this.ctx.stroke();
-            }
-            
-        }
-        
-        // Initialize the engine when page loads
-        window.addEventListener('load', () => {
-            new QuantumNoodleEngine();
+<script>
+// ╔══════════════════════════════════════════════════╗
+// ║  ÆtherCodex — Quantum Noodle Dynamics v2        ║
+// ║  Bioluminescent physics simulation              ║
+// ╚══════════════════════════════════════════════════╝
+
+class QuantumNoodleEngine {
+  constructor() {
+    this.canvas = document.getElementById('canvas');
+    this.ctx = this.canvas.getContext('2d');
+    this.noodles = [];
+    this.restrictionZones = [];
+    this.entanglements = [];
+    this.quantumFields = [];
+    this.bgParticles = [];
+    this.trailParticles = [];
+    this.time = 0;
+    this.fps = 0;
+    this.lastFPSTime = 0;
+    this.frameCount = 0;
+    this.mouseX = 0;
+    this.mouseY = 0;
+    
+    // Palettes per flow type
+    this.palettes = {
+      natural:  ['rgba(255,220,180,1)', 'rgba(255,200,150,1)', 'rgba(240,180,120,1)', 'rgba(255,230,200,1)'],
+      turbulent:['rgba(100,200,255,1)', 'rgba(80,180,255,1)', 'rgba(120,220,255,1)', 'rgba(60,160,255,1)'],
+      quantum:  ['rgba(180,100,255,1)', 'rgba(200,120,255,1)', 'rgba(160,80,255,1)', 'rgba(220,140,255,1)'],
+      chaotic:  ['rgba(255,100,160,1)', 'rgba(255,80,140,1)', 'rgba(255,120,180,1)', 'rgba(255,60,120,1)']
+    };
+    
+    this.params = {
+      quantumCoherence: 0.7,
+      noodleElasticity: 0.8,
+      entanglementStrength: 0.4,
+      restrictionIntensity: 0.5,
+      flowType: 'natural',
+      quantumEffects: true,
+      bendingConstraint: 0.8,
+      distributionForce: 0.3
+    };
+    
+    this.resize();
+    this.createNoodles(10);
+    this.createBackgroundParticles(60);
+    this.initQuantumFields(6);
+    this.setupListeners();
+    this.animate();
+  }
+  
+  resize() {
+    this.canvas.width = window.innerWidth * (window.devicePixelRatio || 1);
+    this.canvas.height = window.innerHeight * (window.devicePixelRatio || 1);
+    this.canvas.style.width = window.innerWidth + 'px';
+    this.canvas.style.height = window.innerHeight + 'px';
+    this.ctx.setTransform(1,0,0,1,0,0);
+    this.ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+    this.W = window.innerWidth;
+    this.H = window.innerHeight;
+  }
+  
+  createBackgroundParticles(n) {
+    this.bgParticles = [];
+    for (let i = 0; i < n; i++) {
+      this.bgParticles.push({
+        x: Math.random() * this.W,
+        y: Math.random() * this.H,
+        r: Math.random() * 2 + 0.5,
+        vx: (Math.random() - 0.5) * 0.15,
+        vy: (Math.random() - 0.5) * 0.15 - 0.05,
+        pulse: Math.random() * Math.PI * 2,
+        pulseSpeed: Math.random() * 0.02 + 0.005,
+      });
+    }
+  }
+  
+  initQuantumFields(n) {
+    this.quantumFields = [];
+    for (let i = 0; i < n; i++) {
+      this.quantumFields.push(this.createField());
+    }
+  }
+  
+  createField() {
+    return {
+      x: Math.random() * this.W,
+      y: Math.random() * this.H,
+      radius: 60 + Math.random() * 140,
+      strength: 0.3 + Math.random() * 0.5,
+      phase: Math.random() * Math.PI * 2,
+      type: Math.random() > 0.5 ? 'attract' : 'repel',
+      life: 1,
+      decay: 0.0003 + Math.random() * 0.0004,
+      hue: Math.random() * 360,
+      pulse: Math.random() * Math.PI * 2,
+    };
+  }
+  
+  createNoodles(count) {
+    this.noodles = [];
+    this.entanglements = [];
+    this.trailParticles = [];
+    const pal = this.palettes[this.params.flowType];
+    
+    for (let i = 0; i < count; i++) {
+      const segments = 25 + Math.floor(Math.random() * 20);
+      const startX = this.W * 0.2 + Math.random() * this.W * 0.6;
+      const startY = this.H * 0.2 + Math.random() * this.H * 0.6;
+      const baseAngle = Math.random() * Math.PI * 2;
+      const spacing = 12 + Math.random() * 10;
+      
+      const noodle = {
+        points: [],
+        thickness: 8 + Math.random() * 8,
+        zDepth: 20 + Math.random() * 80,
+        color: pal[Math.floor(Math.random() * pal.length)],
+        hue: Math.random() * 60 + 20,
+        age: Math.floor(Math.random() * 1000),
+      };
+      
+      for (let j = 0; j < segments; j++) {
+        const wobble = Math.sin(j * 0.35) * (15 + Math.random() * 20);
+        const x = startX + Math.cos(baseAngle) * j * spacing + Math.cos(baseAngle + 1.5) * wobble;
+        const y = startY + Math.sin(baseAngle) * j * spacing + Math.sin(baseAngle + 1.5) * wobble;
+        noodle.points.push({
+          x, y,
+          oldX: x + (Math.random() - 0.5) * 0.5,  // Fixed: init old properly
+          oldY: y + (Math.random() - 0.5) * 0.5,
         });
-    </script>
+      }
+      
+      this.noodles.push(noodle);
+    }
+  }
+  
+  setupListeners() {
+    // All 6 sliders
+    [
+      ['coherence', 'quantumCoherence', 'coherenceVal'],
+      ['elasticity', 'noodleElasticity', 'elasticityVal'],
+      ['entanglement', 'entanglementStrength', 'entanglementVal'],
+      ['restriction', 'restrictionIntensity', 'restrictionVal'],
+      ['bending', 'bendingConstraint', 'bendingVal'],
+      ['distribution', 'distributionForce', 'distributionVal'],
+    ].forEach(([id, param, valId]) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', e => {
+          const v = e.target.value / 100;
+          this.params[param] = v;
+          document.getElementById(valId).textContent = e.target.value + '%';
+        });
+      }
+    });
+    
+    // Flow type buttons
+    document.querySelectorAll('.flow-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        this.params.flowType = e.target.dataset.flow;
+        document.querySelectorAll('.flow-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        // Recolor noodles to match new flow type
+        const pal = this.palettes[this.params.flowType];
+        this.noodles.forEach(n => {
+          n.color = pal[Math.floor(Math.random() * pal.length)];
+        });
+      });
+    });
+    
+    // Toggle quantum
+    const toggleBtn = document.getElementById('toggleQ');
+    toggleBtn.addEventListener('click', () => {
+      this.params.quantumEffects = !this.params.quantumEffects;
+      toggleBtn.classList.toggle('on', this.params.quantumEffects);
+    });
+    
+    // Click = restriction zone
+    this.canvas.addEventListener('click', e => {
+      const rect = this.canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      this.restrictionZones.push({
+        x, y,
+        radius: 40 + Math.random() * 80,
+        strength: this.params.restrictionIntensity,
+        life: 1,
+      });
+      // Spawn burst particles
+      for (let i = 0; i < 12; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 1 + Math.random() * 2;
+        this.trailParticles.push({
+          x, y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 1,
+          decay: 0.02 + Math.random() * 0.03,
+          r: 1.5 + Math.random() * 2,
+          hue: 0,
+        });
+      }
+    });
+    
+    // Mouse track
+    this.canvas.addEventListener('mousemove', e => {
+      const rect = this.canvas.getBoundingClientRect();
+      this.mouseX = e.clientX - rect.left;
+      this.mouseY = e.clientY - rect.top;
+    });
+    
+    // Keyboard
+    window.addEventListener('keydown', e => {
+      switch (e.key) {
+        case ' ': case 'Spacebar':
+          e.preventDefault();
+          for (let i = 0; i < 3; i++) this.quantumFields.push(this.createField());
+          break;
+        case '1': this.params.flowType = 'natural'; this.updateFlowUI(); break;
+        case '2': this.params.flowType = 'turbulent'; this.updateFlowUI(); break;
+        case '3': this.params.flowType = 'quantum'; this.updateFlowUI(); break;
+        case '4': this.params.flowType = 'chaotic'; this.updateFlowUI(); break;
+        case 'ArrowUp':
+          e.preventDefault();
+          this.createNoodles(Math.min(20, this.noodles.length + 1));
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          this.createNoodles(Math.max(3, this.noodles.length - 1));
+          break;
+        case 'r': case 'R':
+          this.restrictionZones = [];
+          this.createNoodles(10);
+          break;
+      }
+    });
+    
+    // Resize
+    window.addEventListener('resize', () => this.resize());
+  }
+  
+  updateFlowUI() {
+    document.querySelectorAll('.flow-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.flow === this.params.flowType);
+    });
+    const pal = this.palettes[this.params.flowType];
+    this.noodles.forEach(n => n.color = pal[Math.floor(Math.random() * pal.length)]);
+  }
+  
+  // ─── UPDATE LOOP ───
+  
+  animate() {
+    this.update();
+    this.render();
+    this.frameCount++;
+    const now = performance.now();
+    if (now - this.lastFPSTime >= 1000) {
+      this.fps = this.frameCount;
+      this.frameCount = 0;
+      this.lastFPSTime = now;
+    }
+    this.time++;
+    requestAnimationFrame(() => this.animate());
+  }
+  
+  update() {
+    this.updateBgParticles();
+    this.updateQuantumFields();
+    this.updateNoodles();
+    this.updateEntanglements();
+    this.updateTrailParticles();
+    this.updateRestrictionZones();
+    this.updateStats();
+  }
+  
+  updateBgParticles() {
+    this.bgParticles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.pulse += p.pulseSpeed;
+      if (p.x < -10) p.x = this.W + 10;
+      if (p.x > this.W + 10) p.x = -10;
+      if (p.y < -10) p.y = this.H + 10;
+      if (p.y > this.H + 10) p.y = -10;
+    });
+  }
+  
+  updateQuantumFields() {
+    if (!this.params.quantumEffects) return;
+    
+    // Decay existing fields
+    this.quantumFields.forEach(f => {
+      f.life -= f.decay;
+      f.phase += 0.02;
+      f.pulse += 0.015;
+      f.x += Math.sin(f.phase) * 0.3;
+      f.y += Math.cos(f.phase * 1.3) * 0.2;
+    });
+    
+    // Remove dead
+    this.quantumFields = this.quantumFields.filter(f => f.life > 0);
+    
+    // Spawn new if too few
+    if (this.quantumFields.length < 4) {
+      this.quantumFields.push(this.createField());
+    }
+    
+    // Random spawn
+    if (Math.random() < 0.008 && this.quantumFields.length < 12) {
+      this.quantumFields.push(this.createField());
+    }
+  }
+  
+  updateNoodles() {
+    this.noodles.forEach((noodle, noodleIndex) => {
+      noodle.age++;
+      noodle.zDepth += Math.sin(noodle.age * 0.008) * 0.08;
+      noodle.zDepth = Math.max(10, Math.min(90, noodle.zDepth));
+      
+      this.applyFlowForces(noodle);
+      if (this.params.quantumEffects) this.applyQuantumEffects(noodle);
+      this.applyRestrictions(noodle);
+      this.verletIntegration(noodle);
+      this.applyConstraints(noodle);
+      this.applySelfRepulsion(noodle);
+      this.applyZCollisions(noodle, noodleIndex);
+      this.checkEntanglements(noodle, noodleIndex);
+      this.applyBoundaryAwareness(noodle);
+      this.emitTrailParticles(noodle);
+    });
+  }
+  
+  // ─── PHYSICS ───
+  
+  applyFlowForces(noodle) {
+    const flow = this.params.flowType;
+    const base = 0.12;
+    
+    noodle.points.forEach((p, i) => {
+      switch (flow) {
+        case 'natural': {
+          const wx = Math.sin(noodle.age * 0.008 + i * 0.12) * 0.18;
+          const wy = Math.cos(noodle.age * 0.006 + i * 0.1) * 0.14;
+          p.x += wx; p.y += wy;
+          break;
+        }
+        case 'turbulent': {
+          const a = noodle.age * 0.012 + i * 0.07;
+          p.x += Math.cos(a) * 0.25 * base;
+          p.y += Math.sin(a) * 0.25 * base;
+          p.x += (Math.random() - 0.5) * 0.1;
+          p.y += (Math.random() - 0.5) * 0.1;
+          break;
+        }
+        case 'quantum': {
+          const c = this.params.quantumCoherence;
+          const n = Math.sin(noodle.age * 0.012 + i * 0.2 + p.x * 0.002) *
+                    Math.cos(noodle.age * 0.01 + i * 0.15 + p.y * 0.002);
+          p.x += Math.cos(n) * base * c * 0.3;
+          p.y += Math.sin(n) * base * c * 0.3;
+          break;
+        }
+        case 'chaotic': {
+          p.x += Math.sin(noodle.age * 0.04 + i * 0.3 + p.x * 0.006) *
+                 Math.cos(noodle.age * 0.035 + i * 0.25 + p.y * 0.006) * base * 0.35;
+          p.y += Math.cos(noodle.age * 0.05 + i * 0.4 + p.x * 0.006) *
+                 Math.sin(noodle.age * 0.045 + i * 0.35 + p.y * 0.006) * base * 0.35;
+          break;
+        }
+      }
+      
+      // Distribution force
+      const distStr = this.params.distributionForce * 0.015;
+      this.noodles.forEach(other => {
+        if (other === noodle) return;
+        other.points.forEach(op => {
+          const dx = p.x - op.x, dy = p.y - op.y;
+          const d = Math.sqrt(dx*dx + dy*dy);
+          if (d < 70 && d > 0) {
+            const f = (70 - d) * distStr / d;
+            p.x += (dx/d) * f * 0.5;
+            p.y += (dy/d) * f * 0.5;
+          }
+        });
+      });
+    });
+  }
+  
+  applyQuantumEffects(noodle) {
+    this.quantumFields.forEach(f => {
+      noodle.points.forEach(p => {
+        const dx = p.x - f.x, dy = p.y - f.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < f.radius && d > 0) {
+          const influence = (f.radius - d) / f.radius;
+          const force = f.strength * influence * 0.4 * f.life;
+          const ang = Math.atan2(dy, dx);
+          const mul = f.type === 'attract' ? -1 : 1;
+          p.x += Math.cos(ang) * force * mul;
+          p.y += Math.sin(ang) * force * mul;
+        }
+      });
+    });
+  }
+  
+  applyRestrictions(noodle) {
+    this.restrictionZones.forEach(zone => {
+      noodle.points.forEach(p => {
+        const dx = p.x - zone.x, dy = p.y - zone.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < zone.radius && d > 0) {
+          const force = (zone.radius - d) / zone.radius * zone.strength * zone.life * 0.25;
+          p.x += (dx/d) * force;
+          p.y += (dy/d) * force;
+        }
+      });
+    });
+  }
+  
+  verletIntegration(noodle) {
+    const friction = 0.955;
+    const elasticity = this.params.noodleElasticity;
+    
+    noodle.points.forEach(p => {
+      const vx = (p.x - p.oldX) * friction;
+      const vy = (p.y - p.oldY) * friction;
+      p.oldX = p.x;
+      p.oldY = p.y;
+      p.x += vx * elasticity;
+      p.y += vy * elasticity;
+      p.x += (Math.random() - 0.5) * 0.06;
+      p.y += (Math.random() - 0.5) * 0.06;
+    });
+  }
+  
+  applyConstraints(noodle) {
+    // Distance constraints between adjacent points
+    const targetDist = 14;
+    for (let i = 0; i < noodle.points.length - 1; i++) {
+      const a = noodle.points[i], b = noodle.points[i + 1];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.sqrt(dx*dx + dy*dy) || 1;
+      const diff = (d - targetDist) / d * 0.35;
+      if (i > 0) { a.x += dx * diff * 0.5; a.y += dy * diff * 0.5; }
+      b.x -= dx * diff * 0.5; b.y -= dy * diff * 0.5;
+    }
+    
+    // Bending constraints
+    const bendStr = this.params.bendingConstraint * 0.08;
+    for (let i = 1; i < noodle.points.length - 1; i++) {
+      const prev = noodle.points[i - 1], cur = noodle.points[i], next = noodle.points[i + 1];
+      const a1 = Math.atan2(cur.y - prev.y, cur.x - prev.x);
+      const a2 = Math.atan2(next.y - cur.y, next.x - cur.x);
+      const diff = Math.atan2(Math.sin(a2 - a1), Math.cos(a2 - a1));
+      if (Math.abs(diff) > Math.PI * 0.55) {
+        const corr = (Math.abs(diff) - Math.PI * 0.55) * bendStr * (diff > 0 ? -1 : 1);
+        const mid = (a1 + a2) / 2 + Math.PI/2;
+        cur.x += Math.cos(mid) * corr * 2;
+        cur.y += Math.sin(mid) * corr * 2;
+      }
+    }
+  }
+  
+  applySelfRepulsion(noodle) {
+    const minDist = noodle.thickness * 1.1;
+    for (let i = 0; i < noodle.points.length; i++) {
+      for (let j = i + 6; j < noodle.points.length; j++) {
+        if (Math.abs(i - j) < 8) continue;
+        const a = noodle.points[i], b = noodle.points[j];
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < minDist && d > 0) {
+          const f = (minDist - d) * 0.015;
+          const ang = Math.atan2(dy, dx);
+          a.x += Math.cos(ang) * f * 0.3;
+          a.y += Math.sin(ang) * f * 0.3;
+          b.x -= Math.cos(ang) * f * 0.3;
+          b.y -= Math.sin(ang) * f * 0.3;
+        }
+      }
+    }
+  }
+  
+  applyZCollisions(noodle, noodleIndex) {
+    for (let i = noodleIndex + 1; i < this.noodles.length; i++) {
+      const other = this.noodles[i];
+      const zDiff = Math.abs(noodle.zDepth - other.zDepth);
+      if (zDiff >= 50) continue;
+      
+      noodle.points.forEach(p1 => {
+        other.points.forEach(p2 => {
+          const dx = p1.x - p2.x, dy = p1.y - p2.y;
+          const d = Math.sqrt(dx*dx + dy*dy);
+          const cd = (noodle.thickness + other.thickness) * 0.5 * (1 - zDiff/50);
+          if (d < cd && d > 0) {
+            const f = (cd - d) * 0.12;
+            const zW = 0.3 + (1 - zDiff/50) * 0.4;
+            p1.x += (dx/d) * f * zW;
+            p1.y += (dy/d) * f * zW;
+            p2.x -= (dx/d) * f * (1 - zW);
+            p2.y -= (dy/d) * f * (1 - zW);
+          }
+        });
+      });
+    }
+  }
+  
+  applyBoundaryAwareness(noodle) {
+    const margin = 50;
+    const strength = 0.003;
+    noodle.points.forEach(p => {
+      if (p.x < margin) p.x += strength * (margin - p.x);
+      if (p.x > this.W - margin) p.x -= strength * (p.x - (this.W - margin));
+      if (p.y < margin) p.y += strength * (margin - p.y);
+      if (p.y > this.H - margin) p.y -= strength * (p.y - (this.H - margin));
+    });
+  }
+  
+  emitTrailParticles(noodle) {
+    if (Math.random() > 0.4) return;
+    const p = noodle.points[Math.floor(Math.random() * noodle.points.length)];
+    const tail = noodle.points[noodle.points.length - 1];
+    this.trailParticles.push({
+      x: tail.x + (Math.random() - 0.5) * 6,
+      y: tail.y + (Math.random() - 0.5) * 6,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3 - 0.1,
+      life: 1,
+      decay: 0.015 + Math.random() * 0.03,
+      r: Math.random() * 2 + 0.5,
+      hue: noodle.hue || 30,
+    });
+  }
+  
+  // ─── ENTANGLEMENTS ───
+  
+  checkEntanglements(noodle, noodleIndex) {
+    for (let i = noodleIndex + 1; i < this.noodles.length; i++) {
+      const other = this.noodles[i];
+      noodle.points.forEach((p1, idx1) => {
+        other.points.forEach((p2, idx2) => {
+          const dx = p1.x - p2.x, dy = p1.y - p2.y;
+          if (dx*dx + dy*dy < 196) { // 14²
+            const exists = this.entanglements.find(e =>
+              (e.a === noodle && e.ai === idx1 && e.b === other && e.bi === idx2) ||
+              (e.a === other && e.ai === idx2 && e.b === noodle && e.bi === idx1)
+            );
+            if (!exists) {
+              this.entanglements.push({
+                a: noodle, ai: idx1, b: other, bi: idx2,
+                strength: this.params.entanglementStrength,
+                life: 1,
+              });
+            }
+          }
+        });
+      });
+    }
+  }
+  
+  updateEntanglements() {
+    this.entanglements.forEach(e => {
+      const p1 = e.a.points[e.ai], p2 = e.b.points[e.bi];
+      const dx = p1.x - p2.x, dy = p1.y - p2.y;
+      const d = Math.sqrt(dx*dx + dy*dy) || 1;
+      if (d > 5) {
+        const f = (d - 5) * e.strength * 0.008;
+        p1.x -= (dx/d) * f;
+        p1.y -= (dy/d) * f;
+        p2.x += (dx/d) * f;
+        p2.y += (dy/d) * f;
+      }
+      e.life -= 0.003;
+    });
+    this.entanglements = this.entanglements.filter(e => {
+      const p1 = e.a.points[e.ai], p2 = e.b.points[e.bi];
+      const dx = p1.x - p2.x, dy = p1.y - p2.y;
+      return dx*dx + dy*dy < 900 && e.life > 0; // 30²
+    });
+  }
+  
+  // ─── PARTICLES ───
+  
+  updateTrailParticles() {
+    this.trailParticles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= p.decay;
+    });
+    this.trailParticles = this.trailParticles.filter(p => p.life > 0);
+  }
+  
+  updateRestrictionZones() {
+    this.restrictionZones.forEach(z => z.life -= 0.002);
+    this.restrictionZones = this.restrictionZones.filter(z => z.life > 0);
+  }
+  
+  updateStats() {
+    document.getElementById('noodleCount').textContent = this.noodles.length;
+    document.getElementById('fieldCount').textContent = this.quantumFields.length;
+    document.getElementById('entanglementCount').textContent = this.entanglements.length;
+    document.getElementById('zoneCount').textContent = this.restrictionZones.length;
+    const act = Math.min(100, Math.floor(this.entanglements.length * 6 + this.quantumFields.length * 4));
+    document.getElementById('quantumActivity').textContent = act + '%';
+  }
+  
+  // ─── RENDERING ───
+  
+  render() {
+    const ctx = this.ctx;
+    
+    // Deep ocean background
+    ctx.fillStyle = 'rgba(2,8,18,0.25)';
+    ctx.fillRect(0, 0, this.W, this.H);
+    
+    // Background particles
+    this.bgParticles.forEach(p => {
+      const alpha = 0.3 + Math.sin(p.pulse) * 0.2;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(100,180,255,${alpha})`;
+      ctx.fill();
+    });
+    
+    // Quantum fields (glowing)
+    if (this.params.quantumEffects) {
+      this.quantumFields.forEach(f => {
+        const alpha = 0.08 * f.life;
+        const pulse = f.radius + Math.sin(f.pulse) * 15;
+        
+        // Outer glow
+        const grad = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, pulse);
+        const hue = f.hue;
+        grad.addColorStop(0, `hsla(${hue},80%,70%,${alpha*1.5})`);
+        grad.addColorStop(0.5, `hsla(${hue},80%,50%,${alpha})`);
+        grad.addColorStop(1, 'transparent');
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, pulse, 0, Math.PI*2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        
+        // Ring
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, pulse * 0.7, 0, Math.PI*2);
+        ctx.strokeStyle = `hsla(${hue},90%,65%,${alpha*2})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        // Label: A or R
+        ctx.fillStyle = `hsla(${hue},90%,80%,${alpha*3})`;
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(f.type === 'attract' ? '⟐' : '⟁', f.x, f.y + 3);
+      });
+    }
+    
+    // Entanglement lines (below noodles)
+    this.entanglements.forEach(e => {
+      const p1 = e.a.points[e.ai], p2 = e.b.points[e.bi];
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.strokeStyle = `rgba(255,255,200,${e.life * 0.25})`;
+      ctx.lineWidth = 0.8;
+      ctx.setLineDash([3, 6]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+    
+    // Restriction zones
+    this.restrictionZones.forEach(z => {
+      ctx.beginPath();
+      ctx.arc(z.x, z.y, z.radius, 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(255,80,80,${z.life * 0.35})`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    });
+    
+    // Trail particles
+    this.trailParticles.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fillStyle = `hsla(${p.hue},90%,70%,${p.life * 0.7})`;
+      ctx.fill();
+    });
+    
+    // Noodles — with glow
+    const sorted = [...this.noodles].sort((a, b) => a.zDepth - b.zDepth);
+    sorted.forEach(noodle => this.renderNoodle(noodle));
+  }
+  
+  renderNoodle(noodle) {
+    const ctx = this.ctx;
+    if (noodle.points.length < 2) return;
+    
+    const opacity = 0.35 + (noodle.zDepth / 100) * 0.65;
+    
+    // Extract base color components for glow
+    let baseColor = noodle.color;
+    // Parse rgba
+    const match = baseColor.match(/[\d.]+/g);
+    const r = match ? parseFloat(match[0]) : 255;
+    const g = match ? parseFloat(match[1]) : 220;
+    const b = match ? parseFloat(match[2]) : 180;
+    
+    // Outer glow pass
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.beginPath();
+    ctx.moveTo(noodle.points[0].x, noodle.points[0].y);
+    for (let i = 1; i < noodle.points.length; i++) {
+      ctx.lineTo(noodle.points[i].x, noodle.points[i].y);
+    }
+    ctx.strokeStyle = `rgba(${r},${g},${b},${opacity * 0.35})`;
+    ctx.lineWidth = noodle.thickness + 8;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.shadowColor = `rgba(${r},${g},${b},0.7)`;
+    ctx.shadowBlur = 18;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.restore();
+    
+    // Core stroke
+    ctx.beginPath();
+    ctx.moveTo(noodle.points[0].x, noodle.points[0].y);
+    for (let i = 1; i < noodle.points.length; i++) {
+      ctx.lineTo(noodle.points[i].x, noodle.points[i].y);
+    }
+    ctx.strokeStyle = `rgba(${r},${g},${b},${opacity * 0.9})`;
+    ctx.lineWidth = noodle.thickness;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+    
+    // Bright center line
+    ctx.beginPath();
+    ctx.moveTo(noodle.points[0].x, noodle.points[0].y);
+    for (let i = 1; i < noodle.points.length; i++) {
+      ctx.lineTo(noodle.points[i].x, noodle.points[i].y);
+    }
+    ctx.strokeStyle = `rgba(${Math.min(255,r+40)},${Math.min(255,g+40)},${Math.min(255,b+40)},${opacity * 0.5})`;
+    ctx.lineWidth = noodle.thickness * 0.4;
+    ctx.stroke();
+    
+    // Head dot
+    const head = noodle.points[0];
+    ctx.beginPath();
+    ctx.arc(head.x, head.y, noodle.thickness * 0.7, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(${r},${g},${b},${opacity})`;
+    ctx.fill();
+  }
+}
+
+// ─── LAUNCH ───
+window.addEventListener('load', () => {
+  new QuantumNoodleEngine();
+});
+</script>
 </body>
 </html>
