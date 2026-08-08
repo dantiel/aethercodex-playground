@@ -65,10 +65,11 @@ canvas{display:block}
   <div class="touch-zone" id="zone-gas">💨</div>
 </div>
 <button id="menu-btn" onclick="toggleMenu()" title="Menü/Pause" style="position:absolute;top:6px;left:6px;z-index:18;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:4px 9px;cursor:pointer;font-size:18px;color:#fff;line-height:1">☰</button>
+<button id="mode-btn" onclick="switchGameMode()" title="Land/Wasser wechseln" style="position:absolute;top:6px;left:44px;z-index:18;background:rgba(40,120,200,.25);border:1px solid rgba(100,180,255,.3);border-radius:8px;padding:3px 8px;cursor:pointer;font-size:13px;color:#fff;line-height:1;font-weight:600">⛵ Wasser</button>
 <button id="music-btn" onclick="toggleMusic()" title="Musik an/aus" style="position:absolute;top:6px;right:6px;z-index:18;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:4px 7px;cursor:pointer;font-size:15px;color:#fff;line-height:1">🔊</button>
 <div id="hud">
     <div class="hud-item">👤<span id="hud-name">—</span></div>
-    <div class="hud-item">⛵<span id="car-name">Sprinter</span></div>
+    <div class="hud-item"><span id="car-icon">⛵</span><span id="car-name">Schaluppe</span></div>
     <div class="hud-item">L<span id="level-label">1</span></div>
     <div class="hud-item">📏<span id="dist">0</span>m</div>
     <div class="hud-item">⚡<span id="speed-val">0</span></div>
@@ -277,41 +278,21 @@ function isNewRecord(meters) {
 }
 
 // ── Car Models ──
-const CAR_MODELS = {
-    sprinter: {
-        name:'⛵ Schaluppe', desc:'Wendig & ausgewogen', cost:0,
-        baseSpeed:750, baseThrust:520, turnSpeed:3.5, friction:28,
-        tankLvl: [5,7,9,12], tankCost: [0,25,60,130],
-        engLvl: [1.0,1.25,1.5,1.8], engCost: [0,35,90,180],
-        handLvl: [1.0,0.75,0.5,0.25], handCost: [0,18,48,110],
-        color:'#c89460', darkColor:'#8b5e3c', deckColor:'#deb887',
-    },
-    dragster: {
-        name:'🚀 Schnellsegler', desc:'Hohe Geschwindigkeit, träge Kurven', cost:80,
-        baseSpeed:880, baseThrust:650, turnSpeed:2.5, friction:22,
-        tankLvl:[4,6,8,10], tankCost:[0,36,84,165],
-        engLvl:[1.0,1.3,1.7,2.2], engCost:[0,54,126,240],
-        handLvl:[1.0,0.85,0.7,0.55], handCost:[0,30,72,150],
-        color:'#b84040', darkColor:'#6b2020', deckColor:'#d4a574',
-    },
-    monster: {
-        name:'🛡️ Galeone', desc:'Riesentank, beste Wendigkeit', cost:150,
-        baseSpeed:620, baseThrust:400, turnSpeed:4.5, friction:35,
-        tankLvl:[8,11,14,18], tankCost:[0,45,105,195],
-        engLvl:[1.0,1.2,1.4,1.6], engCost:[0,30,75,150],
-        handLvl:[1.0,0.6,0.35,0.15], handCost:[0,15,36,84],
-        color:'#3a6b3a', darkColor:'#1e3b1e', deckColor:'#c4a882',
-    },
-    thrust: {
-        name:'⚡ Teufelsbrigantine', desc:'Extremer Schub, kurzer Burn', cost:300,
-        baseSpeed:950, baseThrust:800, turnSpeed:2.8, friction:20,
-        tankLvl:[3,4.5,6,8], tankCost:[0,54,120,240],
-        engLvl:[1.0,1.4,1.9,2.6], engCost:[0,75,165,330],
-        handLvl:[1.0,0.8,0.6,0.4], handCost:[0,42,96,195],
-        color:'#553388', darkColor:'#2a1544', deckColor:'#b8a0c8',
-    },
+const LAND_VEHICLES = {
+    sprinter: { name:'🏎️ Sprinter', desc:'Wendig & ausgewogen', cost:0, baseSpeed:750, baseThrust:520, turnSpeed:3.5, friction:28, tankLvl:[5,7,9,12], tankCost:[0,25,60,130], engLvl:[1.0,1.25,1.5,1.8], engCost:[0,35,90,180], handLvl:[1.0,0.75,0.5,0.25], handCost:[0,18,48,110], color:'#e04040', darkColor:'#801010', deckColor:'#ff6666', },
+    dragster: { name:'🚀 Dragster', desc:'Hohe Geschwindigkeit, träge Kurven', cost:80, baseSpeed:880, baseThrust:650, turnSpeed:2.5, friction:22, tankLvl:[4,6,8,10], tankCost:[0,36,84,165], engLvl:[1.0,1.3,1.7,2.2], engCost:[0,54,126,240], handLvl:[1.0,0.85,0.7,0.55], handCost:[0,30,72,150], color:'#4488cc', darkColor:'#1a3366', deckColor:'#66bbff', },
+    monster: { name:'🛞 Monster Truck', desc:'Riesentank, beste Wendigkeit', cost:150, baseSpeed:620, baseThrust:400, turnSpeed:4.5, friction:35, tankLvl:[8,11,14,18], tankCost:[0,45,105,195], engLvl:[1.0,1.2,1.4,1.6], engCost:[0,30,75,150], handLvl:[1.0,0.6,0.35,0.15], handCost:[0,15,36,84], color:'#3a6b3a', darkColor:'#1e3b1e', deckColor:'#6bcf6b', },
+    thrust: { name:'⚡ Raketencoupé', desc:'Extremer Schub, kurzer Burn', cost:300, baseSpeed:950, baseThrust:800, turnSpeed:2.8, friction:20, tankLvl:[3,4.5,6,8], tankCost:[0,54,120,240], engLvl:[1.0,1.4,1.9,2.6], engCost:[0,75,165,330], handLvl:[1.0,0.8,0.6,0.4], handCost:[0,42,96,195], color:'#553388', darkColor:'#2a1544', deckColor:'#b8a0c8', },
 };
-const CAR_KEYS = Object.keys(CAR_MODELS);
+const WATER_VEHICLES = {
+    sprinter: { name:'⛵ Schaluppe', desc:'Wendig & ausgewogen', cost:0, baseSpeed:750, baseThrust:520, turnSpeed:3.5, friction:28, tankLvl:[5,7,9,12], tankCost:[0,25,60,130], engLvl:[1.0,1.25,1.5,1.8], engCost:[0,35,90,180], handLvl:[1.0,0.75,0.5,0.25], handCost:[0,18,48,110], color:'#c89460', darkColor:'#8b5e3c', deckColor:'#deb887', },
+    dragster: { name:'🚀 Schnellsegler', desc:'Hohe Geschwindigkeit, träge Kurven', cost:80, baseSpeed:880, baseThrust:650, turnSpeed:2.5, friction:22, tankLvl:[4,6,8,10], tankCost:[0,36,84,165], engLvl:[1.0,1.3,1.7,2.2], engCost:[0,54,126,240], handLvl:[1.0,0.85,0.7,0.55], handCost:[0,30,72,150], color:'#b84040', darkColor:'#6b2020', deckColor:'#d4a574', },
+    monster: { name:'🛡️ Galeone', desc:'Riesentank, beste Wendigkeit', cost:150, baseSpeed:620, baseThrust:400, turnSpeed:4.5, friction:35, tankLvl:[8,11,14,18], tankCost:[0,45,105,195], engLvl:[1.0,1.2,1.4,1.6], engCost:[0,30,75,150], handLvl:[1.0,0.6,0.35,0.15], handCost:[0,15,36,84], color:'#3a6b3a', darkColor:'#1e3b1e', deckColor:'#c4a882', },
+    thrust: { name:'⚡ Teufelsbrigantine', desc:'Extremer Schub, kurzer Burn', cost:300, baseSpeed:950, baseThrust:800, turnSpeed:2.8, friction:20, tankLvl:[3,4.5,6,8], tankCost:[0,54,120,240], engLvl:[1.0,1.4,1.9,2.6], engCost:[0,75,165,330], handLvl:[1.0,0.8,0.6,0.4], handCost:[0,42,96,195], color:'#553388', darkColor:'#2a1544', deckColor:'#b8a0c8', },
+};
+let gameMode = 'water'; // 'land' | 'water'
+let CAR_MODELS = gameMode==='land' ? LAND_VEHICLES : WATER_VEHICLES;
+const CAR_KEYS = ['sprinter','dragster','monster','thrust'];
 
 let starterSave = getSave();
 let totalCoins = starterSave.totalCoins || 0;
@@ -685,73 +666,68 @@ const PERSP = 0.0028;
 const SCALE_BASE = 1.3;
 const HEIGHT_SCALE = 1.8;
 
-// ── Water Zones ──
-const BIOMES = [
-    { name:'Küstengewässer', startDist:0,
-      skyTop:'#5b9ecf', skyBot:'#b8dcf0',
-      fogR:100, fogG:160, fogB:200,
-      groundLoR:20, groundLoG:80, groundLoB:160,
-      groundHiR:30, groundHiG:120, groundHiB:200,
-      waterShallow:'#1a8aaa', waterDeep:'#0a3a5a',
-      treeType:'palm', heightMul:0.7, freqMul:1.0, ampMul:0.5, slopeMul:0.6 },
-    { name:'Korallenriff', startDist:350,
-      skyTop:'#4a80b8', skyBot:'#c8e4f8',
-      fogR:90, fogG:150, fogB:210,
-      groundLoR:15, groundLoG:70, groundLoB:170,
-      groundHiR:25, groundHiG:110, groundHiB:210,
-      waterShallow:'#0a7090', waterDeep:'#082e48',
-      treeType:'reef', heightMul:0.5, freqMul:0.8, ampMul:0.65, slopeMul:0.5 },
-    { name:'Offene See', startDist:700,
-      skyTop:'#5588bb', skyBot:'#d0e8ff',
-      fogR:130, fogG:180, fogB:220,
-      groundLoR:10, groundLoG:55, groundLoB:140,
-      groundHiR:18, groundHiG:90, groundHiB:180,
-      waterShallow:'#0d5d78', waterDeep:'#051e35',
-      treeType:'none', heightMul:0.2, freqMul:0.3, ampMul:0.15, slopeMul:1.0 },
-    { name:'Vulkaninseln', startDist:1050,
-      skyTop:'#cc8844', skyBot:'#ffcc88',
-      fogR:180, fogG:130, fogB:100,
-      groundLoR:10, groundLoG:45, groundLoB:90,
-      groundHiR:20, groundHiG:70, groundHiB:130,
-      waterShallow:'#1a6060', waterDeep:'#0a2020',
-      treeType:'volcano', heightMul:1.4, freqMul:0.9, ampMul:1.3, slopeMul:1.2 },
-    { name:'Sturmbucht', startDist:1400,
-      skyTop:'#334466', skyBot:'#8899aa',
-      fogR:60, fogG:80, fogB:110,
-      groundLoR:8, groundLoG:35, groundLoB:80,
-      groundHiR:12, groundHiG:55, groundHiB:110,
-      waterShallow:'#154050', waterDeep:'#030e18',
-      treeType:'rock', heightMul:0.9, freqMul:1.4, ampMul:1.2, slopeMul:1.3 },
-    { name:'Mythischer Ozean', startDist:1800,
-      skyTop:'#0a0a2e', skyBot:'#2a1a5e',
-      fogR:40, fogG:30, fogB:80,
-      groundLoR:5, groundLoG:20, groundLoB:60,
-      groundHiR:15, groundHiG:35, groundHiB:90,
-      waterShallow:'#1a2060', waterDeep:'#050520',
-      treeType:'ruin', heightMul:1.2, freqMul:1.7, ampMul:1.6, slopeMul:1.3 },
+// ── Biomes ──
+const LAND_BIOMES = [
+    { name:'Wiese', startDist:0, skyTop:'#5b9ecf', skyBot:'#b8dcf0', fogR:120,fogG:180,fogB:160, groundLoR:40,groundLoG:90,groundLoB:30, groundHiR:80,groundHiG:150,groundHiB:40, treeType:'pine', heightMul:0.8, freqMul:1.0, ampMul:0.7, slopeMul:0.8 },
+    { name:'Wüste', startDist:350, skyTop:'#cc9966', skyBot:'#ffddbb', fogR:210,fogG:180,fogB:140, groundLoR:180,groundLoG:140,groundLoB:80, groundHiR:220,groundHiG:180,groundHiB:110, treeType:'cactus', heightMul:1.0, freqMul:1.3, ampMul:1.1, slopeMul:1.1 },
+    { name:'Salzwüste', startDist:700, skyTop:'#888899', skyBot:'#ddddee', fogR:180,fogG:190,fogB:200, groundLoR:200,groundLoG:200,groundLoB:210, groundHiR:235,groundHiG:235,groundHiB:240, treeType:'none', heightMul:0.3, freqMul:0.5, ampMul:0.2, slopeMul:1.0 },
+    { name:'Eiswüste', startDist:1050, skyTop:'#8899cc', skyBot:'#ddeeff', fogR:180,fogG:210,fogB:240, groundLoR:200,groundLoG:220,groundLoB:240, groundHiR:230,groundHiG:245,groundHiB:255, treeType:'ice', heightMul:0.6, freqMul:0.7, ampMul:0.5, slopeMul:0.6 },
+    { name:'Mars', startDist:1400, skyTop:'#884444', skyBot:'#dd9966', fogR:180,fogG:120,fogB:80, groundLoR:160,groundLoG:80,groundLoB:40, groundHiR:200,groundHiG:120,groundHiB:60, treeType:'rock', heightMul:1.3, freqMul:1.5, ampMul:1.4, slopeMul:1.2 },
+    { name:'Regenbogen-Weltraum', startDist:1800, skyTop:'#0a0a2e', skyBot:'#2a1a5e', fogR:40,fogG:30,fogB:80, groundLoR:20,groundLoG:15,groundLoB:50, groundHiR:40,groundHiG:30,groundHiB:90, treeType:'crystal', heightMul:1.5, freqMul:1.8, ampMul:1.7, slopeMul:1.4 },
 ];
+const WATER_BIOMES = [
+    { name:'Küstengewässer', startDist:0, skyTop:'#5b9ecf', skyBot:'#b8dcf0', fogR:100,fogG:160,fogB:200, groundLoR:20,groundLoG:80,groundLoB:160, groundHiR:30,groundHiG:120,groundHiB:200, waterShallow:'#1a8aaa', waterDeep:'#0a3a5a', treeType:'palm', heightMul:0.7, freqMul:1.0, ampMul:0.5, slopeMul:0.6 },
+    { name:'Korallenriff', startDist:350, skyTop:'#4a80b8', skyBot:'#c8e4f8', fogR:90,fogG:150,fogB:210, groundLoR:15,groundLoG:70,groundLoB:170, groundHiR:25,groundHiG:110,groundHiB:210, waterShallow:'#0a7090', waterDeep:'#082e48', treeType:'reef', heightMul:0.5, freqMul:0.8, ampMul:0.65, slopeMul:0.5 },
+    { name:'Offene See', startDist:700, skyTop:'#5588bb', skyBot:'#d0e8ff', fogR:130,fogG:180,fogB:220, groundLoR:10,groundLoG:55,groundLoB:140, groundHiR:18,groundHiG:90,groundHiB:180, waterShallow:'#0d5d78', waterDeep:'#051e35', treeType:'none', heightMul:0.2, freqMul:0.3, ampMul:0.15, slopeMul:1.0 },
+    { name:'Vulkaninseln', startDist:1050, skyTop:'#cc8844', skyBot:'#ffcc88', fogR:180,fogG:130,fogB:100, groundLoR:10,groundLoG:45,groundLoB:90, groundHiR:20,groundHiG:70,groundHiB:130, waterShallow:'#1a6060', waterDeep:'#0a2020', treeType:'volcano', heightMul:1.4, freqMul:0.9, ampMul:1.3, slopeMul:1.2 },
+    { name:'Sturmbucht', startDist:1400, skyTop:'#334466', skyBot:'#8899aa', fogR:60,fogG:80,fogB:110, groundLoR:8,groundLoG:35,groundLoB:80, groundHiR:12,groundHiG:55,groundHiB:110, waterShallow:'#154050', waterDeep:'#030e18', treeType:'rock', heightMul:0.9, freqMul:1.4, ampMul:1.2, slopeMul:1.3 },
+    { name:'Mythischer Ozean', startDist:1800, skyTop:'#0a0a2e', skyBot:'#2a1a5e', fogR:40,fogG:30,fogB:80, groundLoR:5,groundLoG:20,groundLoB:60, groundHiR:15,groundHiG:35,groundHiB:90, waterShallow:'#1a2060', waterDeep:'#050520', treeType:'ruin', heightMul:1.2, freqMul:1.7, ampMul:1.6, slopeMul:1.3 },
+];
+let BIOMES = gameMode==='land' ? LAND_BIOMES : WATER_BIOMES;
 function getBiome(dm){for(let i=BIOMES.length-1;i>=0;i--){if(dm>=BIOMES[i].startDist)return BIOMES[i];}return BIOMES[0];}
 
 let carScreenY = CAR_BASE_Y;
 let carTilt = 0;
 
 function getHeight(x, y) {
-    // Water is mostly flat — islands are positive heights above water
+    if (gameMode==='water') {
+        const b = getBiome(-y/10);
+        const fm = b.freqMul || 1.0, am = b.ampMul || 1.0;
+        const islandNoise = Math.sin(x*0.0018*fm + y*0.0015*fm)*0.6 + Math.sin(x*0.0035*fm - y*0.0028*fm + 1.7)*0.4;
+        const threshold = 0.25 + (1 - am) * 0.4;
+        let baseH = -8;
+        if (islandNoise >= threshold) {
+            let h = 0; const t = islandNoise - threshold;
+            h += t * 55 * am;
+            h += Math.sin(x*0.008*fm + y*0.007*fm) * 12 * am;
+            h += Math.sin(x*0.015*fm - y*0.012*fm + 1.3) * 7 * am;
+            h += (hash(Math.floor(x*0.8), Math.floor(y*0.8)) - 0.5) * 4;
+            baseH = Math.max(0, h);
+        }
+        let wakeH = 0;
+        for (const wp of wakePoints) {
+            const dx = x - wp.x, dy = y - wp.y;
+            const dist = Math.sqrt(dx*dx+dy*dy);
+            if (dist < 250 && wp.strength > 0.005) {
+                const wakeAngle = wp.angle + (dx > 0 ? 0.35 : -0.35);
+                const alongWake = dx*Math.cos(wakeAngle) + dy*Math.sin(wakeAngle);
+                const acrossWake = -dx*Math.sin(wakeAngle) + dy*Math.cos(wakeAngle);
+                const ridgeDist = Math.abs(alongWake - wp.trailDist);
+                const ridge = Math.exp(-ridgeDist*ridgeDist/2500)*Math.exp(-acrossWake*acrossWake/400);
+                wakeH += ridge * wp.strength * 18;
+            }
+        }
+        return baseH + wakeH;
+    }
     const b = getBiome(-y/10);
     const fm = b.freqMul || 1.0, am = b.ampMul || 1.0;
-    // Island detection: use large-scale noise to create island shapes
-    const islandNoise = Math.sin(x*0.0018*fm + y*0.0015*fm)*0.6 + Math.sin(x*0.0035*fm - y*0.0028*fm + 1.7)*0.4;
-    const threshold = 0.25 + (1 - am) * 0.4; // fewer islands in open ocean
-    if (islandNoise < threshold) return -8; // underwater — flat water surface
-    
-    // Island terrain: positive height for islands
     let h = 0;
-    const t = islandNoise - threshold;
-    h += t * 55 * am;
-    h += Math.sin(x*0.008*fm + y*0.007*fm) * 12 * am;
-    h += Math.sin(x*0.015*fm - y*0.012*fm + 1.3) * 7 * am;
-    h += (hash(Math.floor(x*0.8), Math.floor(y*0.8)) - 0.5) * 4;
-    return Math.max(0, h);
+    h += Math.sin(x*0.0025*fm + y*0.002*fm) * 24 * am;
+    h += Math.sin(x*0.007*fm - y*0.006*fm + 1.3) * 14 * am;
+    h += Math.sin(x*0.015*fm + y*0.013*fm + 2.7) * 8 * am;
+    h += Math.sin(x*0.035*fm - y*0.03*fm + 0.5) * 4 * am;
+    h += (hash(Math.floor(x*0.7), Math.floor(y*0.7))-0.5)*7;
+    return h;
 }
 
 function worldToScreen(wx, wy) {
@@ -792,6 +768,21 @@ function persist() {
 }
 
 function circleCircle(a,b) { const dx=a.x-b.x,dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy) < (a.r+b.r); }
+
+let wakePoints = []; // {x, y, strength, age} for dynamic boat wake waves
+
+function switchGameMode() {
+    gameMode = gameMode==='land' ? 'water' : 'land';
+    BIOMES = gameMode==='land' ? LAND_BIOMES : WATER_BIOMES;
+    CAR_MODELS = gameMode==='land' ? LAND_VEHICLES : WATER_VEHICLES;
+    wakePoints = [];
+    const modeBtn = document.getElementById('mode-btn');
+    modeBtn.textContent = gameMode==='land' ? '🏎️ Land' : '⛵ Wasser';
+    modeBtn.style.background = gameMode==='land' ? 'rgba(200,80,40,.25)' : 'rgba(40,120,200,.25)';
+    document.getElementById('car-icon').textContent = gameMode==='land' ? '🏎️' : '⛵';
+    document.getElementById('car-name').textContent = getCarModel().name;
+    document.getElementById('dist').textContent = '0';
+}
 
 // ── Physics ──
 function update(dt) {
@@ -1030,6 +1021,20 @@ function update(dt) {
     car.vy = Math.sin(car.velAngle)*car.speed;
     car.x += car.vx*dt; car.y += car.vy*dt;
 
+    // ── Wake wave generation (water mode, fast boat) ──
+    if (gameMode==='water' && car.speed > 30) {
+        const wakeStr = (car.speed - 30) / 500;
+        if (Math.random() < car.speed * dt * 0.08) {
+            wakePoints.push({x:car.x, y:car.y, strength:wakeStr, age:0, angle:car.velAngle, trailDist:0});
+        }
+        for (let i=wakePoints.length-1; i>=0; i--) {
+            wakePoints[i].age += dt;
+            wakePoints[i].trailDist += car.speed * dt;
+            wakePoints[i].strength -= dt * 0.15;
+            if (wakePoints[i].strength <= 0 || wakePoints[i].age > 4) wakePoints.splice(i,1);
+        }
+    }
+
     const h0 = getHeight(car.x, car.y);
     const hx = getHeight(car.x+6, car.y);
     const hy = getHeight(car.x, car.y+6);
@@ -1248,24 +1253,33 @@ function drawGround() {
             const fogFactor=Math.max(0,Math.min(1,(avgZ-0.15)/0.7));
             const diagFlip = ((row*73+col*157)%100)<50;
 
-            const isIsland = avgH > 2;
-            if (isIsland) {
-                // Island terrain — sandy/grassy colors
-                const hNorm=(avgH*biome.heightMul+45)/90;
-                const d=0.8;
-                const rc=Math.floor((120+hNorm*90)*d), gc=Math.floor((100+hNorm*90)*d), bc=Math.floor((50+hNorm*60)*d);
-                ctx.fillStyle=`rgb(${Math.floor(rc+(biome.fogR-rc)*fogFactor)},${Math.floor(gc+(biome.fogG-gc)*fogFactor)},${Math.floor(bc+(biome.fogB-bc)*fogFactor)})`;
+            const isIsland = gameMode==='water' && avgH > 2;
+            if (gameMode==='water') {
+                if (isIsland) {
+                    const hNorm=(avgH*biome.heightMul+45)/90;
+                    const d=0.8;
+                    const rc=Math.floor((120+hNorm*90)*d), gc=Math.floor((100+hNorm*90)*d), bc=Math.floor((50+hNorm*60)*d);
+                    ctx.fillStyle=`rgb(${Math.floor(rc+(biome.fogR-rc)*fogFactor)},${Math.floor(gc+(biome.fogG-gc)*fogFactor)},${Math.floor(bc+(biome.fogB-bc)*fogFactor)})`;
+                } else {
+                    const waveShimmer = Math.sin(p0.wx*0.05 + p0.wy*0.05 + frame*0.04) * 10;
+                    const depthFade = Math.min(1, avgZ*1.2);
+                    const wShallow = biome.waterShallow || '#1a6a8a';
+                    const wDeep = biome.waterDeep || '#0a3050';
+                    const sr=parseInt(wShallow.slice(1,3),16), sg=parseInt(wShallow.slice(3,5),16), sb=parseInt(wShallow.slice(5,7),16);
+                    const dr=parseInt(wDeep.slice(1,3),16), dg=parseInt(wDeep.slice(3,5),16), db=parseInt(wDeep.slice(5,7),16);
+                    const wr=Math.floor(sr+(dr-sr)*depthFade+waveShimmer), wg=Math.floor(sg+(dg-sg)*depthFade+waveShimmer), wb=Math.floor(sb+(db-sb)*depthFade+waveShimmer);
+                    ctx.fillStyle=`rgb(${Math.max(0,Math.min(255,wr))},${Math.max(0,Math.min(255,wg))},${Math.max(0,Math.min(255,wb))})`;
+                }
             } else {
-                // Water — animate with subtle wave shimmer
-                const waveShimmer = Math.sin(p0.wx*0.05 + p0.wy*0.05 + frame*0.04) * 10;
-                const depthFade = Math.min(1, avgZ*1.2);
-                const wShallow = biome.waterShallow || '#1a6a8a';
-                const wDeep = biome.waterDeep || '#0a3050';
-                // Parse hex colors for interpolation
-                const sr=parseInt(wShallow.slice(1,3),16), sg=parseInt(wShallow.slice(3,5),16), sb=parseInt(wShallow.slice(5,7),16);
-                const dr=parseInt(wDeep.slice(1,3),16), dg=parseInt(wDeep.slice(3,5),16), db=parseInt(wDeep.slice(5,7),16);
-                const wr=Math.floor(sr+(dr-sr)*depthFade+waveShimmer), wg=Math.floor(sg+(dg-sg)*depthFade+waveShimmer), wb=Math.floor(sb+(db-sb)*depthFade+waveShimmer);
-                ctx.fillStyle=`rgb(${Math.max(0,Math.min(255,wr))},${Math.max(0,Math.min(255,wg))},${Math.max(0,Math.min(255,wb))})`;
+                // Land terrain — height-based coloring
+                const hNorm = Math.max(-1, Math.min(1, avgH / 50));
+                const gndR = biome.groundLoR + (biome.groundHiR - biome.groundLoR) * (hNorm * 0.5 + 0.5);
+                const gndG = biome.groundLoG + (biome.groundHiG - biome.groundLoG) * (hNorm * 0.5 + 0.5);
+                const gndB = biome.groundLoB + (biome.groundHiB - biome.groundLoB) * (hNorm * 0.5 + 0.5);
+                const fr = Math.floor(gndR + (biome.fogR - gndR) * fogFactor);
+                const fg = Math.floor(gndG + (biome.fogG - gndG) * fogFactor);
+                const fb = Math.floor(gndB + (biome.fogB - gndB) * fogFactor);
+                ctx.fillStyle = `rgb(${fr},${fg},${fb})`;
             }
             ctx.beginPath(); ctx.moveTo(p0.sx,p0.sy); ctx.lineTo(p1.sx,p1.sy); ctx.lineTo(p2.sx,p2.sy); ctx.closePath();
             ctx.fill();
@@ -1279,8 +1293,8 @@ function drawGround() {
         }
     }
 
-    // Wave crest lines on near water
-    if (grid.length>BEHIND_ROWS+2) {
+    // Wave crest lines on near water (water mode only)
+    if (gameMode==='water' && grid.length>BEHIND_ROWS+2) {
         for (let i=BEHIND_ROWS+2; i<Math.min(BEHIND_ROWS+12, grid.length); i++) {
             const r=grid[i]; if (!r) continue;
             const z=r[0].z;
@@ -1383,8 +1397,45 @@ function drawTree(t) {
         return;
     }
     if (biome.treeType==='none') return;
-
-    // ── Default: sand dune ──
+    // ── PINE (land forest) ──
+    if (biome.treeType==='pine') {
+        ctx.fillStyle='rgba(0,0,0,0.15)'; ctx.beginPath(); ctx.ellipse(s.x+r*0.05,s.y,r*0.45,r*0.15,0,0,Math.PI*2); ctx.fill();
+        const tw=r*0.12; ctx.strokeStyle='#6b4a2a'; ctx.lineWidth=tw; ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.lineTo(s.x,topY); ctx.stroke();
+        ctx.fillStyle='#2a6a1a'; ctx.beginPath(); ctx.moveTo(s.x-r*0.55,topY+treeH*0.6); ctx.lineTo(s.x,topY); ctx.lineTo(s.x+r*0.55,topY+treeH*0.6); ctx.closePath(); ctx.fill();
+        ctx.fillStyle='#3a8a2a'; ctx.beginPath(); ctx.moveTo(s.x-r*0.45,topY+treeH*0.35); ctx.lineTo(s.x,topY-treeH*0.1); ctx.lineTo(s.x+r*0.45,topY+treeH*0.35); ctx.closePath(); ctx.fill();
+        ctx.fillStyle='#4a9a3a'; ctx.beginPath(); ctx.moveTo(s.x-r*0.3,topY+treeH*0.1); ctx.lineTo(s.x,topY-treeH*0.15); ctx.lineTo(s.x+r*0.3,topY+treeH*0.1); ctx.closePath(); ctx.fill();
+        return;
+    }
+    // ── CACTUS (desert) ──
+    if (biome.treeType==='cactus') {
+        ctx.fillStyle='rgba(0,0,0,0.12)'; ctx.beginPath(); ctx.ellipse(s.x+r*0.05,s.y,r*0.3,r*0.1,0,0,Math.PI*2); ctx.fill();
+        const cw=r*0.14; ctx.fillStyle='#5a8a4a'; ctx.fillRect(s.x-cw,topY,cw*2,treeH);
+        ctx.fillStyle='#4a7a3a'; ctx.fillRect(s.x-cw*0.4,topY,cw*0.7,treeH);
+        // Arms
+        ctx.fillStyle='#5a8a4a'; ctx.fillRect(s.x-cw,topY+treeH*0.3,cw*1.8,r*0.1); ctx.fillRect(s.x-cw,topY+treeH*0.3,r*0.1,treeH*0.25);
+        ctx.fillRect(s.x+cw*0.3,topY+treeH*0.15,r*0.1,treeH*0.35);
+        return;
+    }
+    // ── ICE (ice crystal) ──
+    if (biome.treeType==='ice') {
+        ctx.fillStyle='rgba(200,230,255,0.2)'; ctx.beginPath(); ctx.ellipse(s.x+r*0.05,s.y,r*0.4,r*0.15,0,0,Math.PI*2); ctx.fill();
+        const ig=ctx.createLinearGradient(s.x,topY,s.x,s.y);
+        ig.addColorStop(0,'rgba(220,245,255,0.9)'); ig.addColorStop(0.5,'rgba(180,220,255,0.7)'); ig.addColorStop(1,'rgba(140,190,230,0.4)');
+        ctx.fillStyle=ig; ctx.beginPath(); ctx.moveTo(s.x-r*0.4,s.y); ctx.lineTo(s.x-r*0.12,topY+treeH*0.35); ctx.lineTo(s.x+r*0.15,topY); ctx.lineTo(s.x+r*0.35,s.y); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle='rgba(255,255,255,0.5)'; ctx.lineWidth=0.8; ctx.stroke();
+        return;
+    }
+    // ── CRYSTAL (rainbow space) ──
+    if (biome.treeType==='crystal') {
+        const hue=(s.x*0.3+car.y*0.05)%360;
+        ctx.fillStyle='rgba(0,0,0,0.15)'; ctx.beginPath(); ctx.ellipse(s.x+r*0.05,s.y,r*0.3,r*0.1,0,0,Math.PI*2); ctx.fill();
+        const cg=ctx.createLinearGradient(s.x,topY,s.x,s.y);
+        cg.addColorStop(0,`hsla(${hue},80%,75%,0.9)`); cg.addColorStop(0.6,`hsla(${hue+20},70%,55%,0.7)`); cg.addColorStop(1,`hsla(${hue+40},60%,35%,0.4)`);
+        ctx.fillStyle=cg; ctx.beginPath(); ctx.moveTo(s.x-r*0.35,s.y); ctx.lineTo(s.x-r*0.1,topY+treeH*0.3); ctx.lineTo(s.x+r*0.12,topY); ctx.lineTo(s.x+r*0.3,s.y); ctx.closePath(); ctx.fill();
+        ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.arc(s.x,topY+treeH*0.3,r*0.12,0,Math.PI*2); ctx.fill();
+        return;
+    }
+    // Default: sand dune
     ctx.fillStyle='rgba(0,0,0,0.15)'; ctx.beginPath(); ctx.ellipse(s.x+r*0.1,s.y,r*0.7,r*0.22,0,0,Math.PI*2); ctx.fill();
     ctx.fillStyle='#dcc8a0'; ctx.beginPath(); ctx.ellipse(s.x,s.y-r*0.1,r*0.6,r*0.2,0,0,Math.PI*2); ctx.fill();
     ctx.fillStyle='#c8b080'; ctx.beginPath(); ctx.ellipse(s.x-r*0.1,s.y-r*0.05,r*0.3,r*0.12,0,0,Math.PI*2); ctx.fill();
@@ -1394,6 +1445,11 @@ function drawCar() {
     const cx=W/2, cy=carScreenY;
     const carScale=SCALE_BASE;
     const cm = getCarModel();
+    if (gameMode==='land') { drawLandCar(cx, cy, carScale, cm); return; }
+    drawWaterBoat(cx, cy, carScale, cm);
+}
+
+function drawWaterBoat(cx, cy, carScale, cm) {
     const hullColor = cm.color;
     const hullDark = cm.darkColor;
     const deckColor = cm.deckColor;
@@ -1528,13 +1584,68 @@ function drawCar() {
     ctx.restore();
 }
 
+function drawLandCar(cx, cy, carScale, cm) {
+    const carColor = cm.color, carDark = cm.darkColor, accent = cm.deckColor;
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(-carTilt);
+    const w = car.width * carScale, h = car.height * carScale;
+    // Rocket exhaust
+    const igniting = ignitionTimer < 1.5, showFlame = fuel > 0 && (car.speed > 40 || igniting);
+    if (showFlame) {
+        const fs = igniting ? (1.5 + Math.random() * 0.8) : 1.0;
+        const fl = (16 + Math.random() * 18 + car.speed * 0.07) * fs, fw = (5 + Math.random() * 3) * fs;
+        const og = ctx.createLinearGradient(0, h/2, 0, h/2 + fl + 10);
+        og.addColorStop(0, 'rgba(255,200,50,.9)'); og.addColorStop(.3, 'rgba(255,80,10,.7)');
+        og.addColorStop(.7, 'rgba(255,20,0,.2)'); og.addColorStop(1, 'rgba(255,0,0,0)');
+        ctx.fillStyle = og; ctx.beginPath();
+        ctx.moveTo(-fw, h/2); ctx.quadraticCurveTo(-fw - 5, h/2 + fl * .5, 0, h/2 + fl);
+        ctx.quadraticCurveTo(fw + 5, h/2 + fl * .5, fw, h/2); ctx.fill();
+        const ig = ctx.createLinearGradient(0, h/2, 0, h/2 + fl * .4);
+        ig.addColorStop(0, 'rgba(255,255,220,1)'); ig.addColorStop(1, 'rgba(255,150,20,0)');
+        ctx.fillStyle = ig; ctx.beginPath(); ctx.moveTo(-fw * .35, h/2); ctx.quadraticCurveTo(0, h/2 + fl * .3, fw * .35, h/2); ctx.fill();
+    }
+    // Wheels
+    const wheelR = w * 0.18, wheelY = h * 0.3;
+    for (let side = -1; side <= 1; side += 2) {
+        ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(side * w * 0.32, wheelY, wheelR, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(side * w * 0.32, wheelY, wheelR * 0.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#555'; ctx.beginPath(); ctx.arc(side * w * 0.32, wheelY, wheelR * 0.25, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(side * w * 0.32, -wheelY, wheelR * 0.9, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(side * w * 0.32, -wheelY, wheelR * 0.5, 0, Math.PI * 2); ctx.fill();
+    }
+    // Body
+    const bodyGrad = ctx.createLinearGradient(0, -h * 0.35, 0, h * 0.25);
+    bodyGrad.addColorStop(0, accent); bodyGrad.addColorStop(0.4, carColor); bodyGrad.addColorStop(1, carDark);
+    ctx.fillStyle = bodyGrad; ctx.beginPath();
+    ctx.moveTo(-w * 0.4, -h * 0.25); ctx.quadraticCurveTo(-w * 0.48, -h * 0.05, -w * 0.48, h * 0.1);
+    ctx.lineTo(w * 0.35, h * 0.1); ctx.quadraticCurveTo(w * 0.48, h * 0.05, w * 0.45, -h * 0.05);
+    ctx.quadraticCurveTo(w * 0.3, -h * 0.35, w * 0.05, -h * 0.4);
+    ctx.quadraticCurveTo(-w * 0.15, -h * 0.38, -w * 0.4, -h * 0.25); ctx.fill();
+    // Windows
+    ctx.fillStyle = 'rgba(150,220,255,0.6)'; ctx.beginPath();
+    ctx.moveTo(w * 0.05, -h * 0.32); ctx.lineTo(w * 0.25, -h * 0.28); ctx.lineTo(w * 0.28, -h * 0.05); ctx.lineTo(w * 0.02, -h * 0.08); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1; ctx.stroke();
+    // Spoiler
+    ctx.fillStyle = carDark; ctx.fillRect(-w * 0.3, -h * 0.38, w * 0.32, h * 0.06);
+    ctx.fillStyle = carColor; ctx.fillRect(-w * 0.3, -h * 0.32, w * 0.32, h * 0.03);
+    // Nozzles
+    const engLvl = carUpgrades[activeCar] ? carUpgrades[activeCar].eng : 0;
+    const numN = 1 + engLvl;
+    for (let n = 0; n < numN; n++) {
+        const nx = -4 + n * (8 / (numN || 1));
+        ctx.fillStyle = '#333'; ctx.fillRect(nx - 3, h * 0.08, 6, 6);
+        ctx.fillStyle = '#111'; ctx.fillRect(nx - 2, h * 0.09, 4, 4);
+    }
+    ctx.restore();
+}
+
 function drawParticles() {
     for (const p of particles) {
         const s=worldToScreen(p.x,p.y);
         const a=Math.min(p.life/0.5,1); const pr=p.r*s.scale*a;
         if (pr<0.3) continue;
-        // Water spray = white/blue mist, fire = orange/yellow
-        ctx.fillStyle=p.smoke?`rgba(180,210,240,${a*0.5})`:`rgba(255,${140+Math.floor(a*90)},20,${a*.65})`;
+        // Mode-dependent smoke color: water spray or dust
+        const smokeColor = gameMode==='water' ? `rgba(180,210,240,${a*0.5})` : `rgba(180,160,140,${a*0.4})`;
+        ctx.fillStyle=p.smoke?smokeColor:`rgba(255,${140+Math.floor(a*90)},20,${a*.65})`;
         ctx.beginPath(); ctx.arc(s.x,s.y,pr,0,Math.PI*2); ctx.fill();
     }
 }
@@ -1704,14 +1815,17 @@ function render() {
         const lvlName=lvlInfo?lvlInfo.name:`Level ${currentLevel}`;
         const lvlTarget=lvlInfo?lvlInfo.target:350;
         const cm=getCarModel();
+        const modeTitle = gameMode==='land' ? '🚀 RAKETENAUTO 🚀' : '🏴‍☠️ RAKETENBOOT 🏴‍☠️';
+        const controlHint = gameMode==='land' ? '⬆ Gas  |  SPACE Zündung  |  ⬅ ➡ lenken' : '⬆ Gas  |  SPACE Zündung  |  ⬅ ➡ lenken';
         ctx.fillStyle='#fff';
-        ctx.font='bold 34px system-ui';ctx.fillText('🏴‍☠️ RAKETENBOOT 🏴‍☠️',W/2,H/2-75);
+        ctx.font='bold 34px system-ui';ctx.fillText(modeTitle,W/2,H/2-75);
         ctx.font='18px system-ui';ctx.fillText(`${cm.name} — ${cm.desc}`,W/2,H/2-45);
         ctx.font='20px system-ui';ctx.fillText(lvlName,W/2,H/2-20);
         ctx.font='16px system-ui';ctx.fillText(`Ziel: ${lvlTarget}m`,W/2,H/2+8);
         ctx.font='18px system-ui';ctx.fillText('STARTE die Zündsequenz',W/2,H/2+40);
-        ctx.font='13px system-ui';ctx.fillText('⬆ Gas  |  SPACE Zündung  |  ⬅ ➡ lenken',W/2,H/2+65);
-        ctx.font='12px system-ui';ctx.fillText(`⛽ Tank: ${getUpgradeVal('tank')}s | 🔥 Motor: ${Math.round(getUpgradeVal('eng')*100)}% | ⚓ Steuer: ${Math.round(getUpgradeVal('hand')*100)}% Verlust`,W/2,H/2+85);
+        ctx.font='13px system-ui';ctx.fillText(controlHint,W/2,H/2+65);
+        const steerLabel = gameMode==='land' ? '🛞 Lenkung' : '⚓ Steuer';
+        ctx.font='12px system-ui';ctx.fillText(`⛽ Tank: ${getUpgradeVal('tank')}s | 🔥 Motor: ${Math.round(getUpgradeVal('eng')*100)}% | ${steerLabel}: ${Math.round(getUpgradeVal('hand')*100)}% Verlust`,W/2,H/2+85);
         ctx.textAlign='start';
     }
     if (state==='ignition') {
@@ -1756,7 +1870,8 @@ function render() {
 const overlay = document.getElementById('overlay');
 
 function showOverlay(reason, meters) {
-    const title = reason==='crash'?'💥 Riff gerammt!':'🛑 Tank leer!';
+    const crashText = gameMode==='land' ? '💥 Baum gecrasht!' : '💥 Riff gerammt!';
+    const title = reason==='crash' ? crashText : '🛑 Tank leer!';
     overlay.innerHTML=`
         <h2>${title}</h2>
         <div class="stat">Strecke: <strong>${meters}</strong> m</div>
@@ -1776,7 +1891,8 @@ function showFinishOverlay(meters, totalBonus, finishSpd, rollM, speedBonus, rol
     const nextInfo = nextLevel
         ?`<div class="stat">Nächstes Ziel: <strong>${nextLevel.target}m</strong> — ${nextLevel.name}</div>`
         :'<div class="stat">🎉 Alle Level gemeistert!</div>';
-    const crashNote = treeCrashCoasting ? `<div class="stat" style="color:#f44">💥 In Riff gecrasht! −50% Bonus</div>` : '';
+    const crashObj = gameMode==='land' ? 'Baum' : 'Riff';
+    const crashNote = treeCrashCoasting ? `<div class="stat" style="color:#f44">💥 In ${crashObj} gecrasht! −50% Bonus</div>` : '';
     overlay.innerHTML=`
         <h2>🏁 Ziel erreicht!</h2>
         <div class="stat">Strecke: <strong>${meters}</strong> m</div>
