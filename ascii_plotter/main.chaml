@@ -1,0 +1,153 @@
+-# ASCII Art Plotter — UI in CoffeeHaml (Quelle). Build: node build.mjs
+-# Erzeugt assets/js/ui.generated.js (window.CoffeeHamlApp). Nicht von Hand editieren.
+%div.app
+  %header.app-head
+    %div.brand
+      %span.sigil ◬
+      %div
+        %h1 ASCII Art Plotter
+        %p.tagline GCODE-Generator für CNC-Stift auf T-Shirt
+    %div.head-meta
+      %span.head-stat= props.fontName
+  %div.workspace
+    %aside.sidebar
+      %section.pane.pane-text
+        %h2.pane-title 1 · ASCII-Art
+        %textarea.editor{spellCheck: false, placeholder: 'Dein ASCII-Motiv…', value: props.text, onInput: props.onText}
+        %div.btnrow
+          %button{onClick: props.loadDemo} Demo laden
+          %button{onClick: props.clearText} Leeren
+
+      %details.pane{open: true}
+        %summary.pane-title 2 · Font & Stift
+        %div.pane-body
+          %div.field
+            %span.label Stift:
+            %select{value: props.penIdx, onChange: props.onPen}
+              - for pen, i in props.pens
+                %option{value: i}= pen.name
+          %div.btnrow
+            %button{onClick: props.useBuiltin} Eingebauter Pixel-Font
+            %label.filebtn
+              %span TTF/OTF laden
+              %input.file{type: 'file', accept: '.ttf,.otf', onChange: props.onFont}
+          %p.hint Für Serifen-Fonts wird die Mittelachse jedes Balkens extrahiert; die lokale Breite steuert Z-Druck + Feed.
+
+      %details.pane{open: true}
+        %summary.pane-title 3 · Maße & Layout
+        %div.pane-body
+          %div.paramgrid
+            %label
+              %span Schriftgröße (mm)
+              %input{type: 'number', step: '0.5', value: props.params.cellH, onInput: props.onNum('cellH')}
+            %label
+              %span Zeichenbreite (mm)
+              %input{type: 'number', step: '0.25', value: props.params.cellW, onInput: props.onNum('cellW')}
+            %label
+              %span Zeichenabstand (mm)
+              %input{type: 'number', step: '0.25', value: props.params.letterSpacing, onInput: props.onNum0('letterSpacing')}
+            %label
+              %span Zeilenabstand (mm)
+              %input{type: 'number', step: '0.25', value: props.params.lineSpacing, onInput: props.onNum0('lineSpacing')}
+            %label
+              %span Rand (mm)
+              %input{type: 'number', step: '0.5', value: props.params.margin, onInput: props.onNum0('margin')}
+            %label
+              %span Arbeitsbreite (mm)
+              %input{type: 'number', step: '10', placeholder: '0 = auto', value: props.params.pageW, onInput: props.onNum0('pageW')}
+            %label
+              %span Arbeitshöhe (mm)
+              %input{type: 'number', step: '10', placeholder: '0 = auto', value: props.params.pageH, onInput: props.onNum0('pageH')}
+            %label
+              %span Horizontal
+              %select{value: props.params.alignX, onChange: props.onSelect('alignX')}
+                %option{value: 'left'} Links
+                %option{value: 'center'} Mitte
+                %option{value: 'right'} Rechts
+            %label
+              %span Vertikal
+              %select{value: props.params.alignY, onChange: props.onSelect('alignY')}
+                %option{value: 'top'} Oben
+                %option{value: 'middle'} Mitte
+                %option{value: 'bottom'} Unten
+            %label
+              %span Mindest-Strich (mm)
+              %input{type: 'number', step: '0.01', value: props.params.minStrokeLen, onInput: props.onNum0('minStrokeLen')}
+
+      %details.pane
+        %summary.pane-title 4 · Linienführung
+        %div.pane-body
+          %div.paramgrid
+            %label
+              %span Kurvenmodus
+              %select{value: props.params.curveMode, onChange: props.onSelect('curveMode')}
+                %option{value: 'arcs'} Bögen (G2/G3)
+                %option{value: 'lines'} Linien (G1)
+            %label
+              %span Ecken-Splitt (°)
+              %input{type: 'number', step: '5', value: props.params.cornerSplitDeg, onInput: props.onNum('cornerSplitDeg')}
+            %label
+              %span Min. Bogenradius (mm)
+              %input{type: 'number', step: '0.1', value: props.params.minArcRadius, onInput: props.onNum0('minArcRadius')}
+            %label
+              %span Bogen-Toleranz (mm)
+              %input{type: 'number', step: '0.01', value: props.params.arcChordErr, onInput: props.onNum('arcChordErr')}
+          %p.hint „Bögen" = glatte G2/G3-Kreise; „Linien" erzwingt G1-Polygone (kompatibler, aber mehr Punkte). Ecken-Splitt teilt sehr scharfe Knicke in eigene Striche.
+
+      %details.pane
+        %summary.pane-title 5 · Stift-Druck & Feed
+        %div.pane-body
+          %div.paramgrid
+            %label
+              %span Hubhöhe (mm)
+              %input{type: 'number', step: '0.5', value: props.params.lift, onInput: props.onNum('lift')}
+            %label
+              %span Press-Tiefe (mm)
+              %input{type: 'number', step: '0.1', value: props.params.press, onInput: props.onNum('press')}
+            %label
+              %span Z-Gain (mm/Gewicht)
+              %input{type: 'number', step: '0.1', value: props.params.zGain, onInput: props.onNum0('zGain')}
+            %label
+              %span Feed Eilgang (mm/min)
+              %input{type: 'number', step: '100', value: props.params.feedUp, onInput: props.onNum('feedUp')}
+            %label
+              %span Feed dünn (mm/min)
+              %input{type: 'number', step: '50', value: props.params.feedDown, onInput: props.onNum('feedDown')}
+            %label
+              %span Feed dick (mm/min)
+              %input{type: 'number', step: '50', value: props.params.feedMin, onInput: props.onNum('feedMin')}
+            %label
+              %span Feed Z-Tauchen (mm/min)
+              %input{type: 'number', step: '50', value: props.params.plunge, onInput: props.onNum('plunge')}
+          %p.hint Strichbreite = Z-Druck (tiefer) + Feed (langsamer). Dicker = tiefer & langsamer.
+
+      %details.pane
+        %summary.pane-title 6 · Generations-Strategie
+        %div.pane-body
+          %div.paramgrid
+            %label
+              %span Weg-Ordnung
+              %select{value: props.params.orderMode, onChange: props.onSelect('orderMode')}
+                %option{value: 'nearest'} Nächster Nachbar
+                %option{value: 'rows'} Reihen (links→rechts)
+                %option{value: 'serpentine'} Serpentine (Zickzack)
+            %label
+              %span Dedupe-Toleranz (mm)
+              %input{type: 'number', step: '0.005', value: props.params.dedupeEps, onInput: props.onNum('dedupeEps')}
+          %p.hint Nächster Nachbar minimiert Eilweg; Reihen/Serpentine fahren deterministisch und reduzieren Materialverzug.
+
+    %main.stage
+      %div.zoombar
+        %button{onClick: props.zoomOut, title: 'Herauszoomen'} −
+        %span.zoomlabel= props.zoomLabel
+        %button{onClick: props.zoomIn, title: 'Hereinzoomen'} +
+        %button{onClick: props.zoomFit, title: 'Einpassen'} Einpassen
+        %span.zoom-hint Rad = Zoomen · Ziehen = Verschieben · Doppelklick = Einpassen
+      %canvas#preview
+      %p.meta= props.statsLine
+      %details.pane.gcode-pane{open: true}
+        %summary.pane-title GCODE
+        %div.pane-body
+          %div.btnrow
+            %button{onClick: props.download} .gcode speichern
+          %textarea.gcode{readOnly: true, spellCheck: false, value: props.gcode}
