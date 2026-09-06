@@ -684,6 +684,7 @@ const WATER_BIOMES = [
     { name:'Mythischer Ozean', startDist:1800, skyTop:'#0a0a2e', skyBot:'#2a1a5e', fogR:40,fogG:30,fogB:80, groundLoR:5,groundLoG:20,groundLoB:60, groundHiR:15,groundHiG:35,groundHiB:90, waterShallow:'#1a2060', waterDeep:'#050520', treeType:'ruin', heightMul:1.2, freqMul:1.7, ampMul:1.6, slopeMul:1.3 },
 ];
 let BIOMES = gameMode==='land' ? LAND_BIOMES : WATER_BIOMES;
+function vecExpand(vx,vy,cx,cy,px){const dx=vx-cx,dy=vy-cy;const len=Math.sqrt(dx*dx+dy*dy)||1;return{x:vx+(dx/len)*px,y:vy+(dy/len)*px};}
 function getBiome(dm){for(let i=BIOMES.length-1;i>=0;i--){if(dm>=BIOMES[i].startDist)return BIOMES[i];}return BIOMES[0];}
 
 let carScreenY = CAR_BASE_Y;
@@ -1251,7 +1252,12 @@ function drawGround() {
             if (maxX<-20||minX>W+20) continue;
             const avgH=(p0.h+p1.h+p2.h+p3.h)*0.25;
             const fogFactor=Math.max(0,Math.min(1,(avgZ-0.15)/0.7));
-            const diagFlip = ((row*73+col*157)%100)<50;
+
+            // Compute quad center for outward expansion (eliminates anti-alias seams)
+            const qcx=(p0.sx+p1.sx+p2.sx+p3.sx)*0.25, qcy=(p0.sy+p1.sy+p2.sy+p3.sy)*0.25;
+            const ep=0.55; // expansion pixels
+            const e0=vecExpand(p0.sx,p0.sy,qcx,qcy,ep), e1=vecExpand(p1.sx,p1.sy,qcx,qcy,ep);
+            const e2=vecExpand(p2.sx,p2.sy,qcx,qcy,ep), e3=vecExpand(p3.sx,p3.sy,qcx,qcy,ep);
 
             const isIsland = gameMode==='water' && avgH > 2;
             if (gameMode==='water') {
@@ -1281,15 +1287,9 @@ function drawGround() {
                 const fb = Math.floor(gndB + (biome.fogB - gndB) * fogFactor);
                 ctx.fillStyle = `rgb(${fr},${fg},${fb})`;
             }
-            ctx.beginPath(); ctx.moveTo(p0.sx,p0.sy); ctx.lineTo(p1.sx,p1.sy); ctx.lineTo(p2.sx,p2.sy); ctx.closePath();
+            // Single quad fill (not two triangles) — vertices expanded 0.55px outward to eliminate seams
+            ctx.beginPath(); ctx.moveTo(e0.x,e0.y); ctx.lineTo(e1.x,e1.y); ctx.lineTo(e2.x,e2.y); ctx.lineTo(e3.x,e3.y); ctx.closePath();
             ctx.fill();
-            if (!diagFlip) {
-                ctx.beginPath(); ctx.moveTo(p1.sx,p1.sy); ctx.lineTo(p2.sx,p2.sy); ctx.lineTo(p3.sx,p3.sy); ctx.closePath();
-                ctx.fill();
-            } else {
-                ctx.beginPath(); ctx.moveTo(p0.sx,p0.sy); ctx.lineTo(p2.sx,p2.sy); ctx.lineTo(p3.sx,p3.sy); ctx.closePath();
-                ctx.fill();
-            }
         }
     }
 
