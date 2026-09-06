@@ -16,6 +16,35 @@
 
   var builtinFont = window.StrokeFont.builtin();
 
+  /* Eingebettete Fonts (assets/js/fonts.generated.js → window.EmbeddedFonts). */
+  var embeddedFonts = (window.EmbeddedFonts || []).slice();
+  var embeddedById = {};
+  var fontCache = {};
+  embeddedFonts.forEach(function (e) { embeddedById[e.id] = e; });
+
+  var MONO_STACK = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+
+  function base64ToBytes(b64) {
+    var bin = atob(b64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+
+  function loadEmbeddedFont(entry) {
+    if (!entry) return builtinFont;
+    if (fontCache[entry.id]) return fontCache[entry.id];
+    var bytes = base64ToBytes(entry.data);
+    var font = window.opentype.parse(bytes.buffer);
+    var sf = window.StrokeFont.fromOpentype(font, {
+      name: entry.name,
+      mono: !!entry.mono,
+      skeletonRes: 96,
+    });
+    fontCache[entry.id] = sf;
+    return sf;
+  }
+
   /* DoS-Schutz: 6000 Zeichen decken jedes realistische Shirt-Motiv. */
   var MAX_TEXT = 6000;
 
@@ -24,6 +53,11 @@
   var state = {
     text: DEMO_TEXT,
     font: builtinFont,
+    fontKey: 'builtin',
+    fontFamily: MONO_STACK,
+    customFont: null,
+    hasCustomFont: false,
+    editor: { fontSizePx: 14, lineHeight: 1.45 },
     pens: [
       { name: 'Fein 0.4 mm (schwarz)', width: 0.4, color: '#20201f' },
       { name: 'Mittel 0.8 mm (rot)', width: 0.8, color: '#c0392b' },
@@ -85,7 +119,32 @@
   }
   function loadDemo() { state.text = DEMO_TEXT; rebuild(); refresh(); }
   function clearText() { state.text = ''; rebuild(); refresh(); }
-  function useBuiltin() { state.font = builtinFont; rebuild(); refresh(); }
+  function applyFont(font, key, family) {
+    state.font = font;
+    state.fontKey = key;
+    state.fontFamily = family;
+    rebuild();
+    refresh();
+  }
+
+  function onFontSelect(e) {
+    var key = e.target.value;
+    if (key === 'builtin') {
+      applyFont(builtinFont, 'builtin', MONO_STACK);
+    } else if (key === 'custom') {
+      if (state.customFont) applyFont(state.customFont, 'custom', state.fontFamily);
+    } else {
+      var entry = embeddedById[key];
+      if (entry) applyFont(loadEmbeddedFont(entry), key, '"' + entry.family + '", ' + MONO_STACK);
+    }
+  }
+
+  function onEditorNum(key) {
+    return function (e) {
+      var v = parseFloat(e.target.value);
+      if (isFinite(v) && v > 0) { state.editor[key] = v; refresh(); }
+    };
+  }
 
   function onNum(key) {
     return function (e) {
@@ -121,10 +180,12 @@
     }
     file.arrayBuffer().then(function (buf) {
       var font = window.opentype.parse(buf);
-      state.font = window.StrokeFont.fromOpentype(font, {
-        skeletonRes: state.params.skeletonRes || 64,
+      var sf = window.StrokeFont.fromOpentype(font, {
+        skeletonRes: state.params.skeletonRes || 96,
       });
-      rebuild(); refresh();
+      state.customFont = sf;
+      state.hasCustomFont = true;
+      applyFont(sf, 'custom', MONO_STACK);
     }).catch(function (err) {
       window.alert('Font konnte nicht geladen werden: ' + (err && err.message ? err.message : err));
     });
@@ -293,11 +354,28 @@
       penIdx: state.penIdx,
       params: state.params,
       fontName: state.font.name,
+      fonts: embeddedFonts.map(function (f) {
+        return {
+          id: f.id, name: f.name, mono: f.mono,
+          label: (f.mono ? '⊞ ' : '♒ ') + f.name,
+        };
+      }),
+      fontKey: state.fontKey,
+      hasCustomFont: state.hasCustomFont,
+      editorStyle: {
+        fontFamily: state.fontFamily,
+        fontSize: state.editor.fontSizePx + 'px',
+        lineHeight: state.editor.lineHeight,
+      },
+      editorFontSizePx: state.editor.fontSizePx,
+      editorLineHeight: state.editor.lineHeight,
       gcode: state.result ? state.result.gcode : '',
       statsLine: state.result ? statsLine(state.result) : '',
       zoomLabel: Math.round(state.view.zoom * 100) + '%',
       onText: onText, loadDemo: loadDemo, clearText: clearText,
-      useBuiltin: useBuiltin, onFont: onFont, onPen: onPen,
+      onFontSelect: onFontSelect, onFont: onFont, onPen: onPen,
+      onEditorFontSize: onEditorNum('fontSizePx'),
+      onEditorLineHeight: onEditorNum('lineHeight'),
       onNum: onNum, onNum0: onNum0, onSelect: onSelect, onToggle: onToggle,
       download: download,
       zoomIn: function () { var c = document.getElementById('preview'); var r = c ? c.getBoundingClientRect() : { width: 0, height: 0 }; zoomAt(r.width / 2, r.height / 2, 1.6); },

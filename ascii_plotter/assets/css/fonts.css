@@ -1,0 +1,40 @@
+/* AUTO-GENERATED from tools/genfonts.mjs — DO NOT EDIT */
+@font-face {
+  font-family: "Syne Mono";
+  font-style: normal;
+  font-weight: 400;
+  src: url("../fonts/SyneMono-Regular.ttf") format('truetype');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Turret Road";
+  font-style: normal;
+  font-weight: 400;
+  src: url("../fonts/TurretRoad-Regular.ttf") format('truetype');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Turret Road Mono";
+  font-style: normal;
+  font-weight: 400;
+  src: url("../fonts/TurretRoad-Mono.ttf") format('truetype');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Olympia Congress";
+  font-style: normal;
+  font-weight: 400;
+  src: url("../fonts/OlympiaCongress.ttf") format('truetype');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Olympia Script";
+  font-style: normal;
+  font-weight: 400;
+  src: url("../fonts/OlympiaScript.ttf") format('truetype');
+  font-display: swap;
+}

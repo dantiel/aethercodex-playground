@@ -490,7 +490,22 @@
     var tol = opts.flattenTol != null ? opts.flattenTol : upem / 2000;
     var arcRms = opts.arcRms != null ? opts.arcRms : upem * 0.004;
     var targetH = opts.skeletonRes != null ? opts.skeletonRes : 64;
-    var name = (font.names && font.names.fullName && font.names.fullName.en) || 'Importierte TTF/OTF';
+    var name = opts.name ||
+      (font.names && font.names.fullName && font.names.fullName.en) ||
+      'Importierte TTF/OTF';
+    var fixedAdvance = null;
+    if (opts.mono) {
+      /* Monospace erzwingen: feste Advance-Breite = max. druckbarer ASCII-Glyph. */
+      var probe = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 @#%&()[]{}<>/\\|_-+=*^~\'",.;:!?';
+      fixedAdvance = 0;
+      for (var pi = 0; pi < probe.length; pi++) {
+        try {
+          var aw = font.charToGlyph(probe.charAt(pi)).advanceWidth || 0;
+          if (aw > fixedAdvance) fixedAdvance = aw;
+        } catch (e) { /* glyph fehlt */ }
+      }
+      if (fixedAdvance <= 0) fixedAdvance = upem * 0.6;
+    }
     var cache = {};
     var TOL2 = tol * tol;
 
@@ -602,6 +617,7 @@
       cellUnits: upem,
       baselineUnit: upem * 0.22,
       advance: function (ch) {
+        if (fixedAdvance != null) return fixedAdvance;
         try { return font.charToGlyph(ch).advanceWidth || upem * 0.6; }
         catch (e) { return upem * 0.6; }
       },

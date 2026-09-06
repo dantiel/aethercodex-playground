@@ -11,7 +11,8 @@ Statische Browser-App, läuft direkt per `file://` (keine ES-Module zur Laufzeit
 | Kriterium | Umsetzung |
 | --- | --- |
 | UI lädt ohne Fehler | `open index.html` — React rendert die vorkompilierte `CoffeeHamlApp` |
-| Sichtbare ASCII-Art-Vorschau | Eingebauter 5×7-Pixelfont (offline, garantiert sichtbar) + Canvas-Vorschau |
+| Sichtbare ASCII-Art-Vorschau | Eingebauter 5×7-Pixelfont + 5 eingebettete Fonts (offline, garantiert sichtbar) + Canvas-Vorschau |
+| **Eingebettete Fonts** | Syne Mono, Turret Road, **Turret Road Mono** (monospaced Ableitung), Olympia Congress, Olympia Script — per Dropdown wählbar, inkl. Editor-Vorschau |
 | GCODE korrekt & herunterladbar | `AsciiPlotter.layout()` → GCODE-String, Download als `.gcode` |
 | **Einzelstrich** statt Outline | Skeletonisierung (Medial Axis) statt Kontur-Tracing — ein Strich pro Balken |
 | Ecken **und** Rundungen | Ecken = Polyline-Segmente (G1), Rundungen = Kreis-Fitting → G2/G3 |
@@ -31,7 +32,7 @@ node tools/smoke.mjs   # Engine-Tests + Beispiel-GCODE
 open index.html        # App im Browser (file://, kein Server nötig)
 ```
 
-Arbeitsablauf im Browser: Text einfügen → (optional TTF/OTF laden) → Stift & Parameter wählen → Vorschau prüfen → `.gcode` speichern.
+Arbeitsablauf im Browser: Text einfügen → Schriftart wählen (Pixel-Font / 5 eingebettete Fonts / eigene TTF-OTF) → Stift & Parameter wählen → Vorschau prüfen → `.gcode` speichern.
 
 ## Architektur
 

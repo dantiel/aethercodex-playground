@@ -9,31 +9,48 @@
         %p.tagline GCODE-Generator für CNC-Stift auf T-Shirt
     %div.head-meta
       %span.head-stat= props.fontName
+      %span.head-stat.head-stat--ghost= props.statsLine
+
   %div.workspace
     %aside.sidebar
-      %section.pane.pane-text
+      %section.pane.pane--manuscript
         %h2.pane-title 1 · ASCII-Art
-        %textarea.editor{spellCheck: false, placeholder: 'Dein ASCII-Motiv…', value: props.text, onInput: props.onText}
+        %textarea.editor{spellCheck: false, placeholder: 'Dein ASCII-Motiv…', value: props.text, onInput: props.onText, style: props.editorStyle}
         %div.btnrow
-          %button{onClick: props.loadDemo} Demo laden
-          %button{onClick: props.clearText} Leeren
+          %button.btn.btn--emerald{onClick: props.loadDemo} ✦ Demo laden
+          %button.btn.btn--ghost{onClick: props.clearText} Leeren
 
-      %details.pane{open: true}
+      %details.pane.pane--sigil{open: true}
         %summary.pane-title 2 · Font & Stift
         %div.pane-body
           %div.field
-            %span.label Stift:
-            %select{value: props.penIdx, onChange: props.onPen}
-              - for pen, i in props.pens
-                %option{value: i}= pen.name
-          %div.btnrow
-            %button{onClick: props.useBuiltin} Eingebauter Pixel-Font
-            %label.filebtn
-              %span TTF/OTF laden
-              %input.file{type: 'file', accept: '.ttf,.otf', onChange: props.onFont}
-          %p.hint Für Serifen-Fonts wird die Mittelachse jedes Balkens extrahiert; die lokale Breite steuert Z-Druck + Feed.
+            %span.label Schriftart:
+            %select{value: props.fontKey, onChange: props.onFontSelect}
+              %option{value: 'builtin'} ⬛ Eingebauter Pixel-Font
+              - for f in props.fonts
+                %option{value: f.id}= f.label
+              - if props.hasCustomFont
+                %option{value: 'custom'} ✳ Eigener Font (geladen)
+          %div.paramgrid
+            %label
+              %span Editor-Schriftgröße (px)
+              %input{type: 'number', step: '1', value: props.editorFontSizePx, onInput: props.onEditorFontSize}
+            %label
+              %span Editor-Zeilenhöhe
+              %input{type: 'number', step: '0.05', value: props.editorLineHeight, onInput: props.onEditorLineHeight}
+            %label
+              %span Stift
+              %select{value: props.penIdx, onChange: props.onPen}
+                - for pen, i in props.pens
+                  %option{value: i}= pen.name
+            %label
+              %span Eigene TTF/OTF
+              %label.filebtn
+                %span ⇪ TTF/OTF laden
+                %input.file{type: 'file', accept: '.ttf,.otf', onChange: props.onFont}
+          %p.hint Monospace-Fonts (⊞) halten die Rasterausrichtung; Proportional-Fonts (♒) erzeugen echte Haar-/Balkenkontraste. Serifen werden als Mittelachse extrahiert — Breite steuert Z-Druck + Feed.
 
-      %details.pane{open: true}
+      %details.pane.pane--blueprint
         %summary.pane-title 3 · Maße & Layout
         %div.pane-body
           %div.paramgrid
@@ -73,8 +90,9 @@
             %label
               %span Mindest-Strich (mm)
               %input{type: 'number', step: '0.01', value: props.params.minStrokeLen, onInput: props.onNum0('minStrokeLen')}
+          %p.hint Schriftgröße = Zellenhöhe in mm (1 Zelle = 1 Zeichen). Zeichenbreite unabhängig davon einstellbar.
 
-      %details.pane
+      %details.pane.pane--orbit
         %summary.pane-title 4 · Linienführung
         %div.pane-body
           %div.paramgrid
@@ -94,7 +112,7 @@
               %input{type: 'number', step: '0.01', value: props.params.arcChordErr, onInput: props.onNum('arcChordErr')}
           %p.hint „Bögen" = glatte G2/G3-Kreise; „Linien" erzwingt G1-Polygone (kompatibler, aber mehr Punkte). Ecken-Splitt teilt sehr scharfe Knicke in eigene Striche.
 
-      %details.pane
+      %details.pane.pane--pressure
         %summary.pane-title 5 · Stift-Druck & Feed
         %div.pane-body
           %div.paramgrid
@@ -121,7 +139,7 @@
               %input{type: 'number', step: '50', value: props.params.plunge, onInput: props.onNum('plunge')}
           %p.hint Strichbreite = Z-Druck (tiefer) + Feed (langsamer). Dicker = tiefer & langsamer.
 
-      %details.pane
+      %details.pane.pane--labyrinth
         %summary.pane-title 6 · Generations-Strategie
         %div.pane-body
           %div.paramgrid
@@ -138,16 +156,16 @@
 
     %main.stage
       %div.zoombar
-        %button{onClick: props.zoomOut, title: 'Herauszoomen'} −
+        %button.btn.btn--ghost{onClick: props.zoomOut, title: 'Herauszoomen'} −
         %span.zoomlabel= props.zoomLabel
-        %button{onClick: props.zoomIn, title: 'Hereinzoomen'} +
-        %button{onClick: props.zoomFit, title: 'Einpassen'} Einpassen
+        %button.btn.btn--ghost{onClick: props.zoomIn, title: 'Hereinzoomen'} +
+        %button.btn.btn--emerald{onClick: props.zoomFit, title: 'Einpassen'} ⊡ Einpassen
         %span.zoom-hint Rad = Zoomen · Ziehen = Verschieben · Doppelklick = Einpassen
       %canvas#preview
       %p.meta= props.statsLine
-      %details.pane.gcode-pane{open: true}
+      %details.pane.pane--gcode{open: true}
         %summary.pane-title GCODE
         %div.pane-body
           %div.btnrow
-            %button{onClick: props.download} .gcode speichern
+            %button.btn.btn--emerald{onClick: props.download} ⇓ .gcode speichern
           %textarea.gcode{readOnly: true, spellCheck: false, value: props.gcode}
