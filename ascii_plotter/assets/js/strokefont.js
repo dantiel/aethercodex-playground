@@ -547,10 +547,12 @@
       }
       for (i = 0; i < cmds.length; i++) {
         cmd = cmds[i];
-        if (cmd.type === 'M') { flush(); cont = [[cmd.x, cmd.y]]; }
-        else if (cmd.type === 'L') { cont.push([cmd.x, cmd.y]); }
-        else if (cmd.type === 'Q') { flattenQuad(cont[cont.length - 1], [cmd.x1, cmd.y1], [cmd.x, cmd.y], cont); }
-        else if (cmd.type === 'C') { flattenCubic(cont[cont.length - 1], [cmd.x1, cmd.y1], [cmd.x2, cmd.y2], [cmd.x, cmd.y], cont); }
+        /* opentype.getPath() liefert y-DOWN (Baseline y=0, Glyphe steigt in
+         * negatives y). Pipeline erwartet y-UP (oben = großes y): y negieren. */
+        if (cmd.type === 'M') { flush(); cont = [[cmd.x, -cmd.y]]; }
+        else if (cmd.type === 'L') { cont.push([cmd.x, -cmd.y]); }
+        else if (cmd.type === 'Q') { flattenQuad(cont[cont.length - 1], [cmd.x1, -cmd.y1], [cmd.x, -cmd.y], cont); }
+        else if (cmd.type === 'C') { flattenCubic(cont[cont.length - 1], [cmd.x1, -cmd.y1], [cmd.x2, -cmd.y2], [cmd.x, -cmd.y], cont); }
         else if (cmd.type === 'Z') { flush(); }
       }
       flush();
@@ -574,7 +576,9 @@
       var out = [];
       try {
         var polys = glyphPolylines(ch);
-        var bb = font.charToGlyph(ch).getPath(0, 0, upem).getBoundingBox();
+        var bb0 = font.charToGlyph(ch).getPath(0, 0, upem).getBoundingBox();
+        /* opentype.getPath() ist y-DOWN → y negieren für y-UP-BoundingBox. */
+        var bb = { x1: bb0.x1, x2: bb0.x2, y1: -bb0.y2, y2: -bb0.y1 };
         if (bb && polys.length && bb.y2 > bb.y1 && bb.x2 > bb.x1) {
           var pad = 2;
           var pxScale = (bb.y2 - bb.y1) / targetH;
