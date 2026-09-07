@@ -1,12 +1,16 @@
-/* ASCII Art Plotter — hermetiches, polymorphisches Interface.
+/* ASCII Art Plotter — hermetiches Interface, das selbst ASCII-Art IST.
  *
- * Jede Sektion trägt eine eigene Identität (Akzent, Radius, Ornament):
- *   manuscript  = Pergament/Schriftrolle (Gold, organisch)
- *   sigil       = Arkane Glyphe (Smaragd, kristallin)
- *   blueprint   = Bauplan/Raster (Cyan, technisch)
+ * Das UI ist die Maschine, die es beschreibt: eckige Panes mit
+ * Box-Drawing-Ecken (┌ ┘), [+] / [-] Details-Marker, ein ASCII-Logo,
+ * das seinen eigenen Rahmen zeichnet. Die Akzentfarben pro Sektion
+ * bleiben als polymorphisches Echo erhalten.
+ *
+ *   manuscript  = Pergament/Schriftrolle (Gold)
+ *   sigil       = Arkane Glyphe (Smaragd)
+ *   blueprint   = Bauplan/Raster (Cyan)
  *   orbit       = Zirkel/Planetenbahn (Gold, radial)
- *   pressure    = Druck/Fluss (Indigo, wässrig)
- *   labyrinth   = Labyrinth/Faden (Violett, verschlungen)
+ *   pressure    = Druck/Fluss (Indigo)
+ *   labyrinth   = Labyrinth/Faden (Violett)
  *   gcode       = Maschinensprache (Terminal-Grün)
  */
 :root {
@@ -37,6 +41,8 @@ body {
   background-attachment: fixed;
 }
 
+/* Die Schriftart des UI folgt der gewählten Plotter-Schriftart
+   (inline fontFamily auf .app). */
 .app {
   max-width: 1480px; margin: 0 auto;
   padding: 14px 18px 16px;
@@ -46,32 +52,33 @@ body {
 
 /* ---------- Header ---------- */
 .app-head {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 14px; padding: 2px 2px 14px;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 14px; padding: 2px 2px 12px;
 }
-.brand { display: flex; align-items: center; gap: 13px; }
-.sigil {
-  font-size: 30px; line-height: 1;
+.brand { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.ascii-logo {
+  margin: 0;
+  white-space: pre;
+  font-size: 10px;
+  line-height: 1.08;
+  letter-spacing: 0;
   color: #8fd0a8;
-  text-shadow: 0 0 22px rgba(143,208,168,0.7), 0 0 60px rgba(143,208,168,0.35);
-  animation: sigil-pulse 4.5s ease-in-out infinite;
-  filter: drop-shadow(0 0 6px rgba(143,208,168,0.5));
+  text-shadow: 0 0 18px rgba(143,208,168,0.4);
+  user-select: none;
+  flex-shrink: 0;
 }
-@keyframes sigil-pulse {
-  0%, 100% { transform: rotate(0deg) scale(1); }
-  50% { transform: rotate(180deg) scale(1.08); }
-}
+.brand-text { min-width: 0; }
 .app-head h1 {
-  margin: 0; font-size: 21px; letter-spacing: 0.5px; font-weight: 700;
+  margin: 0; font-size: 20px; letter-spacing: 1px; font-weight: 700;
   background: linear-gradient(100deg, #e9e9f2 10%, #8fd0a8 45%, #c7a06a 80%);
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent;
 }
-.tagline { margin: 2px 0 0; color: var(--dim); font-size: 12px; letter-spacing: 0.3px; }
+.tagline { margin: 3px 0 0; color: var(--dim); font-size: 12px; letter-spacing: 0.3px; }
 .head-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .head-stat {
   background: var(--pane); border: 1px solid var(--border);
-  padding: 4px 11px; border-radius: 20px; color: #c7a06a;
+  padding: 4px 11px; border-radius: 0; color: #c7a06a;
   font-size: 11px; max-width: 320px; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap;
 }
@@ -94,56 +101,55 @@ body {
   min-width: 0; min-height: 0; overflow: hidden;
 }
 
-/* ---------- Panes (polymorph) ---------- */
+/* ---------- Panes (eckig, ASCII-Ecken) ---------- */
 .pane {
   position: relative;
   background: linear-gradient(160deg, var(--pane-hi) 0%, var(--pane) 55%);
   border: 1px solid var(--border);
+  border-top: 1px solid var(--acc, var(--border-hi));
+  border-radius: 0;
   overflow: hidden;
   box-shadow: var(--shadow);
   /* jeder Pane setzt --acc */
 }
+/* ASCII-Ecke oben links */
 .pane::before {
-  content: ''; position: absolute; inset: 0 0 auto 0; height: 2px;
-  background: linear-gradient(90deg, transparent, var(--acc, var(--border-hi)), transparent);
-  opacity: 0.6;
+  content: '┌'; position: absolute; top: 0; left: 4px;
+  color: var(--acc, var(--faint)); font-size: 14px; line-height: 1;
+  opacity: 0.9; pointer-events: none;
 }
+/* ASCII-Ecke unten rechts */
 .pane::after {
-  content: '·'; position: absolute; top: 6px; right: 12px;
-  color: var(--acc, var(--faint)); opacity: 0.7; font-size: 14px;
+  content: '┘'; position: absolute; bottom: 0; right: 4px;
+  color: var(--acc, var(--faint)); font-size: 14px; line-height: 1;
+  opacity: 0.9; pointer-events: none;
 }
 
-.pane--manuscript { --acc: #e8b04b; --acc-glow: rgba(232,176,75,0.35); border-radius: 18px 6px 18px 6px; }
-.pane--manuscript::after { content: '✒'; }
-.pane--sigil      { --acc: #8fd0a8; --acc-glow: rgba(143,208,168,0.35); border-radius: 5px 20px 5px 20px; }
-.pane--sigil::after      { content: '✦'; }
-.pane--blueprint  { --acc: #5fc3d4; --acc-glow: rgba(95,195,212,0.32); border-radius: 3px; }
-.pane--blueprint::after  { content: '⌖'; }
-.pane--orbit      { --acc: #d4a24e; --acc-glow: rgba(212,162,78,0.35); border-radius: 22px 8px 22px 8px; }
-.pane--orbit::after      { content: '◌'; }
-.pane--pressure   { --acc: #8a8fce; --acc-glow: rgba(138,143,206,0.35); border-radius: 12px 26px 12px 26px; }
-.pane--pressure::after   { content: '≋'; }
-.pane--labyrinth  { --acc: #c07ac8; --acc-glow: rgba(192,122,200,0.35); border-radius: 8px 8px 30px 30px; }
-.pane--labyrinth::after  { content: '⌘'; }
-.pane--gcode      { --acc: #7ec88a; --acc-glow: rgba(126,200,138,0.3); border-radius: 8px; }
-.pane--gcode::after      { content: '≫'; }
+.pane--manuscript { --acc: #e8b04b; --acc-glow: rgba(232,176,75,0.35); }
+.pane--sigil      { --acc: #8fd0a8; --acc-glow: rgba(143,208,168,0.35); }
+.pane--blueprint  { --acc: #5fc3d4; --acc-glow: rgba(95,195,212,0.32); }
+.pane--orbit      { --acc: #d4a24e; --acc-glow: rgba(212,162,78,0.35); }
+.pane--pressure   { --acc: #8a8fce; --acc-glow: rgba(138,143,206,0.35); }
+.pane--labyrinth  { --acc: #c07ac8; --acc-glow: rgba(192,122,200,0.35); }
+.pane--gcode      { --acc: #7ec88a; --acc-glow: rgba(126,200,138,0.3); }
 
 .pane-title {
   margin: 0;
   display: block;
-  padding: 11px 13px;
+  padding: 11px 13px 9px 24px;
   font-size: 11px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 1.3px;
+  text-transform: uppercase; letter-spacing: 1.4px;
   color: var(--acc, var(--dim));
   cursor: pointer; user-select: none; list-style: none;
 }
 h2.pane-title { cursor: default; padding-bottom: 6px; }
 details.pane > summary.pane-title::-webkit-details-marker { display: none; }
 details.pane > summary.pane-title::before {
-  content: '▸'; display: inline-block; margin-right: 8px;
-  color: var(--faint); transition: transform 0.18s;
+  content: '[+]'; display: inline-block; margin-right: 8px;
+  color: var(--faint); letter-spacing: 0;
+  transition: color 0.15s;
 }
-details.pane[open] > summary.pane-title::before { transform: rotate(90deg); color: var(--acc); }
+details.pane[open] > summary.pane-title::before { content: '[-]'; color: var(--acc); }
 details.pane > summary.pane-title:hover { background: rgba(255,255,255,0.02); }
 .pane-body { padding: 2px 13px 13px; }
 
@@ -156,7 +162,7 @@ textarea.editor, textarea.gcode {
   background: var(--bg-deep);
   color: var(--fg);
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: 0;
   padding: 10px;
   font-family: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
   font-size: 12px;
@@ -176,20 +182,20 @@ input, select {
   background: var(--bg-deep);
   color: var(--fg);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 5px 7px;
   font: inherit; font-size: 12px;
   transition: border-color 0.12s, box-shadow 0.12s;
 }
 select { cursor: pointer; }
 
-/* ---------- Buttons ---------- */
+/* ---------- Buttons (ASCII-Klammern) ---------- */
 .btnrow { display: flex; gap: 8px; margin: 9px 0; flex-wrap: wrap; align-items: center; }
 .btn, button.btn, button {
   background: #24243a;
   color: var(--fg);
   border: 1px solid var(--border-hi);
-  border-radius: 7px;
+  border-radius: 0;
   padding: 6px 12px;
   cursor: pointer;
   font: inherit; font-size: 12px;
@@ -209,7 +215,7 @@ button:active { transform: translateY(1px); background: #1d1d30; }
   width: 100%;
   background: #24243a;
   border: 1px dashed var(--border-hi);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 6px 10px;
   cursor: pointer;
   display: inline-block;
@@ -244,6 +250,23 @@ input.file { display: none; }
 }
 .zoom-hint { color: var(--faint); font-size: 11px; margin-left: 6px; }
 
+/* ASCII-Rahmen um die Vorschau */
+.preview-frame {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+.preview-frame .corner {
+  position: absolute; z-index: 2;
+  color: #c7a06a; font-size: 15px; line-height: 1;
+  pointer-events: none; user-select: none; text-shadow: 0 0 8px rgba(199,160,106,0.5);
+}
+.corner.c-tl { top: 3px; left: 6px; }
+.corner.c-tr { top: 3px; right: 6px; }
+.corner.c-bl { bottom: 3px; left: 6px; }
+.corner.c-br { bottom: 3px; right: 6px; }
+
 canvas#preview {
   width: 100%;
   height: auto;
@@ -251,8 +274,8 @@ canvas#preview {
   min-height: 300px;
   background: var(--ink);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: inset 0 0 40px rgba(0,0,0,0.12);
+  border-radius: 0;
+  box-shadow: inset 0 0 40px rgba(0,0,0,0.10);
   display: block;
   touch-action: none;
   cursor: grab;
@@ -262,7 +285,7 @@ canvas#preview {
 
 /* ---------- Scrollbars ---------- */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: #2e2e42; border-radius: 6px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb { background: #2e2e42; border-radius: 0; border: 2px solid var(--bg); }
 ::-webkit-scrollbar-thumb:hover { background: #3a3a54; }
 
 @media (max-width: 980px) {
@@ -270,4 +293,5 @@ canvas#preview {
   .sidebar { max-height: 55vh; }
   canvas#preview { height: 50vh; }
   .head-stat--ghost { display: none; }
+  .ascii-logo { display: none; }
 }

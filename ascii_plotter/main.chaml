@@ -1,10 +1,10 @@
 -# ASCII Art Plotter — UI in CoffeeHaml (Quelle). Build: node build.mjs
 -# Erzeugt assets/js/ui.generated.js (window.CoffeeHamlApp). Nicht von Hand editieren.
-%div.app
+%div.app{style: props.appStyle}
   %header.app-head
     %div.brand
-      %span.sigil ◬
-      %div
+      %pre.ascii-logo{style: props.asciiStyle}= props.asciiLogo
+      %div.brand-text
         %h1 ASCII Art Plotter
         %p.tagline GCODE-Generator für CNC-Stift auf T-Shirt
     %div.head-meta
@@ -17,8 +17,8 @@
         %h2.pane-title 1 · ASCII-Art
         %textarea.editor{spellCheck: false, placeholder: 'Dein ASCII-Motiv…', value: props.text, onInput: props.onText, style: props.editorStyle}
         %div.btnrow
-          %button.btn.btn--emerald{onClick: props.loadDemo} ✦ Demo laden
-          %button.btn.btn--ghost{onClick: props.clearText} Leeren
+          %button.btn.btn--emerald{onClick: props.loadDemo} [ ✦ Demo laden ]
+          %button.btn.btn--ghost{onClick: props.clearText} [ Leeren ]
 
       %details.pane.pane--sigil{open: true}
         %summary.pane-title 2 · Font & Stift
@@ -46,7 +46,7 @@
             %label
               %span Eigene TTF/OTF
               %label.filebtn
-                %span ⇪ TTF/OTF laden
+                %span [ ⇪ TTF/OTF laden ]
                 %input.file{type: 'file', accept: '.ttf,.otf', onChange: props.onFont}
           %p.hint Monospace-Fonts (⊞) halten die Rasterausrichtung; Proportional-Fonts (♒) erzeugen echte Haar-/Balkenkontraste. Serifen werden als Mittelachse extrahiert — Breite steuert Z-Druck + Feed.
 
@@ -156,16 +156,21 @@
 
     %main.stage
       %div.zoombar
-        %button.btn.btn--ghost{onClick: props.zoomOut, title: 'Herauszoomen'} −
+        %button.btn.btn--ghost{onClick: props.zoomOut, title: 'Herauszoomen'} [ − ]
         %span.zoomlabel= props.zoomLabel
-        %button.btn.btn--ghost{onClick: props.zoomIn, title: 'Hereinzoomen'} +
-        %button.btn.btn--emerald{onClick: props.zoomFit, title: 'Einpassen'} ⊡ Einpassen
+        %button.btn.btn--ghost{onClick: props.zoomIn, title: 'Hereinzoomen'} [ + ]
+        %button.btn.btn--emerald{onClick: props.zoomFit, title: 'Einpassen'} [ ⊡ Einpassen ]
         %span.zoom-hint Rad = Zoomen · Ziehen = Verschieben · Doppelklick = Einpassen
-      %canvas#preview
+      %div.preview-frame
+        %span.corner.c-tl ┌
+        %span.corner.c-tr ┐
+        %canvas#preview
+        %span.corner.c-bl └
+        %span.corner.c-br ┘
       %p.meta= props.statsLine
       %details.pane.pane--gcode{open: true}
-        %summary.pane-title GCODE
+        %summary.pane-title ╭─ GCODE ─╮
         %div.pane-body
           %div.btnrow
-            %button.btn.btn--emerald{onClick: props.download} ⇓ .gcode speichern
+            %button.btn.btn--emerald{onClick: props.download} [ ⇓ .gcode speichern ]
           %textarea.gcode{readOnly: true, spellCheck: false, value: props.gcode}

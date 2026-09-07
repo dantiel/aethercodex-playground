@@ -24,6 +24,29 @@
 
   var MONO_STACK = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
 
+  /* ASCII-Art-Logo — das UI zeichnet seinen eigenen Rahmen.
+   * asciiFrame() normalisiert jede Zeile auf gleiche Breite, damit die
+   * Box-Drawing-Zeichen exakt fluchten (immer monospaced gerendert). */
+  function repeatChar(ch, n) { return new Array(n + 1).join(ch); }
+  function asciiFrame(rows) {
+    var w = 0, i;
+    for (i = 0; i < rows.length; i++) { if (rows[i].length > w) w = rows[i].length; }
+    var bar = repeatChar('═', w + 2);
+    var out = ['╔' + bar + '╗'];
+    for (i = 0; i < rows.length; i++) {
+      out.push('║ ' + rows[i] + repeatChar(' ', w - rows[i].length) + ' ║');
+    }
+    out.push('╚' + bar + '╝');
+    return out.join('\n');
+  }
+  var ASCII_LOGO = asciiFrame([
+    '  ▄▄▄▄▄  ▄▄▄▄▄  ▄▄▄▄▄  ▄▄▄▄▄  ▄▄▄▄▄',
+    '  █▀▀▀█  ▀█▀█▀  █ ▄▄█  ▀█▀█▀  ▀█▀█▀',
+    '  ▀▀▀▀▀  ▀▀▀▀▀  ▀▀▀▀▀  ▀▀▀▀▀  ▀▀▀▀▀',
+    '  A S C I I   ·   P L O T T E R',
+    '  G C O D E   ·   C N C   ·   S T I F T',
+  ]);
+
   function base64ToBytes(b64) {
     var bin = atob(b64);
     var bytes = new Uint8Array(bin.length);
@@ -55,6 +78,7 @@
     font: builtinFont,
     fontKey: 'builtin',
     fontFamily: MONO_STACK,
+    fontMono: true,
     customFont: null,
     hasCustomFont: false,
     editor: { fontSizePx: 14, lineHeight: 1.45 },
@@ -119,10 +143,11 @@
   }
   function loadDemo() { state.text = DEMO_TEXT; rebuild(); refresh(); }
   function clearText() { state.text = ''; rebuild(); refresh(); }
-  function applyFont(font, key, family) {
+  function applyFont(font, key, family, mono) {
     state.font = font;
     state.fontKey = key;
     state.fontFamily = family;
+    state.fontMono = !!mono;
     rebuild();
     refresh();
   }
@@ -130,12 +155,12 @@
   function onFontSelect(e) {
     var key = e.target.value;
     if (key === 'builtin') {
-      applyFont(builtinFont, 'builtin', MONO_STACK);
+      applyFont(builtinFont, 'builtin', MONO_STACK, true);
     } else if (key === 'custom') {
-      if (state.customFont) applyFont(state.customFont, 'custom', state.fontFamily);
+      if (state.customFont) applyFont(state.customFont, 'custom', state.fontFamily, false);
     } else {
       var entry = embeddedById[key];
-      if (entry) applyFont(loadEmbeddedFont(entry), key, '"' + entry.family + '", ' + MONO_STACK);
+      if (entry) applyFont(loadEmbeddedFont(entry), key, '"' + entry.family + '", ' + MONO_STACK, !!entry.mono);
     }
   }
 
@@ -192,11 +217,25 @@
       });
       state.customFont = sf;
       state.hasCustomFont = true;
-      applyFont(sf, 'custom', MONO_STACK);
+      registerCustomFont(file);
+      applyFont(sf, 'custom', '"PlotterCustom", ' + MONO_STACK, false);
     }).catch(function (err) {
       window.alert('Font konnte nicht geladen werden: ' + (err && err.message ? err.message : err));
     });
     e.target.value = '';
+  }
+
+  /* Registriert eine hochgeladene TTF/OTF als @font-face, damit Editor und
+   * UI die echte Schriftart darstellen können (nicht nur die Strich-Extraktion). */
+  function registerCustomFont(file) {
+    var url = URL.createObjectURL(file);
+    var style = document.getElementById('custom-font-css');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'custom-font-css';
+      document.head.appendChild(style);
+    }
+    style.textContent = '@font-face{font-family:PlotterCustom;src:url(' + url + ') format("truetype");}';
   }
 
   function download() {
@@ -369,6 +408,9 @@
       }),
       fontKey: state.fontKey,
       hasCustomFont: state.hasCustomFont,
+      appStyle: { fontFamily: state.fontFamily },
+      asciiStyle: { fontFamily: state.fontMono ? state.fontFamily : MONO_STACK },
+      asciiLogo: ASCII_LOGO,
       editorStyle: {
         fontFamily: state.fontFamily,
         fontSize: state.editor.fontSizePx + 'px',
