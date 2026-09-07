@@ -375,8 +375,8 @@
       /* Maße & Layout */
       cellW: pos(p.cellW, 6),
       cellH: pos(p.cellH, 8),
-      letterSpacing: nneg(p.letterSpacing, 0),
-      lineSpacing: nneg(p.lineSpacing, 0),
+      letterSpacing: fin(p.letterSpacing, 0),
+      lineSpacing: fin(p.lineSpacing, 0),
       margin: nneg(p.margin, 0),
       pageW: nneg(p.pageW, 0),
       pageH: nneg(p.pageH, 0),

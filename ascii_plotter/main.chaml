@@ -62,10 +62,10 @@
               %input{type: 'number', step: '0.25', value: props.params.cellW, onInput: props.onNum('cellW')}
             %label
               %span Zeichenabstand (mm)
-              %input{type: 'number', step: '0.25', value: props.params.letterSpacing, onInput: props.onNum0('letterSpacing')}
+              %input{type: 'number', step: '0.25', value: props.params.letterSpacing, onInput: props.onNumS('letterSpacing')}
             %label
               %span Zeilenabstand (mm)
-              %input{type: 'number', step: '0.25', value: props.params.lineSpacing, onInput: props.onNum0('lineSpacing')}
+              %input{type: 'number', step: '0.25', value: props.params.lineSpacing, onInput: props.onNumS('lineSpacing')}
             %label
               %span Rand (mm)
               %input{type: 'number', step: '0.5', value: props.params.margin, onInput: props.onNum0('margin')}

@@ -105,6 +105,9 @@ check('Ausrichtung Mitte: x0 ≈ (200-w)/2', Math.abs(resCenter.bounds.x0 - (200
 const resTrack = AsciiPlotter.layout('AB', font, { ...params, letterSpacing: 4 }, 0.4);
 check('Zeichenabstand: Breite wächst', resTrack.bounds.w > 12);
 
+const resNeg = AsciiPlotter.layout('AB', font, { ...params, letterSpacing: -2, lineSpacing: -1 }, 0.4);
+check('Negativer Zeichen-/Zeilenabstand: erlaubt & endlich', resNeg.bounds.w < resTrack.bounds.w && isFinite(resNeg.bounds.h));
+
 const resSerp = AsciiPlotter.layout('HI', font, { ...params, orderMode: 'serpentine' }, 0.4);
 check('Serpentine: erzeugt Striche', resSerp.stats.strokes > 0 && resSerp.stats.travel >= 0);
 

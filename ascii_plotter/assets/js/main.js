@@ -159,6 +159,13 @@
       if (isFinite(v) && v >= 0) { state.params[key] = v; scheduleRebuild(); }
     };
   }
+  /* Für Felder, die negative Werte erlauben (letterSpacing, lineSpacing …). */
+  function onNumS(key) {
+    return function (e) {
+      var v = parseFloat(e.target.value);
+      if (isFinite(v)) { state.params[key] = v; scheduleRebuild(); }
+    };
+  }
   function onSelect(key) {
     return function (e) { state.params[key] = e.target.value; scheduleRebuild(); };
   }
@@ -376,7 +383,7 @@
       onFontSelect: onFontSelect, onFont: onFont, onPen: onPen,
       onEditorFontSize: onEditorNum('fontSizePx'),
       onEditorLineHeight: onEditorNum('lineHeight'),
-      onNum: onNum, onNum0: onNum0, onSelect: onSelect, onToggle: onToggle,
+      onNum: onNum, onNum0: onNum0, onNumS: onNumS, onSelect: onSelect, onToggle: onToggle,
       download: download,
       zoomIn: function () { var c = document.getElementById('preview'); var r = c ? c.getBoundingClientRect() : { width: 0, height: 0 }; zoomAt(r.width / 2, r.height / 2, 1.6); },
       zoomOut: function () { var c = document.getElementById('preview'); var r = c ? c.getBoundingClientRect() : { width: 0, height: 0 }; zoomAt(r.width / 2, r.height / 2, 1 / 1.6); },
