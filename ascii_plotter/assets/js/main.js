@@ -44,7 +44,7 @@
     '  █▀▀▀█  ▀█▀█▀  █ ▄▄█  ▀█▀█▀  ▀█▀█▀',
     '  ▀▀▀▀▀  ▀▀▀▀▀  ▀▀▀▀▀  ▀▀▀▀▀  ▀▀▀▀▀',
     '  A S C I I   ·   P L O T T E R',
-    '  G C O D E   ·   C N C   ·   S T I F T',
+    '  A R T E   ·   C N C   ·   S T I F T',
   ]);
 
   function base64ToBytes(b64) {
@@ -102,6 +102,16 @@
     },
     result: null,
     view: { zoom: 1, px: 0, py: 0, fit: null },
+    blackbox: {
+      machine: null,
+      plan: null,
+      status: 'idle',                 /* idle | running | paused | done | connecting */
+      timewarp: 1,
+      serial: null,
+      serialName: null,
+      serialSupported: window.Blackbox ? window.Blackbox.serialAvailable() : false,
+      telemetry: { x: 0, y: 0, z: 0, pen: '—', stroke: '0/0', feed: 0, progress: 0 },
+    },
   };
 
   function rebuild() {
@@ -110,6 +120,7 @@
     state.truncated = t.length > MAX_TEXT;
     if (state.truncated) t = t.slice(0, MAX_TEXT);
     state.result = window.AsciiPlotter.layout(t, state.font, state.params, pen.width);
+    invalidatePlan();
   }
 
   function statsLine(res) {
@@ -238,15 +249,148 @@
     style.textContent = '@font-face{font-family:PlotterCustom;src:url(' + url + ') format("truetype");}';
   }
 
-  function download() {
-    if (!state.result || !state.result.gcode) return;
-    var blob = new Blob([state.result.gcode], { type: 'text/plain;charset=utf-8' });
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'ascii_plotter.gcode';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  /* ------------------------ Hermetische Maschine --------------------------- */
+
+  function ensurePlan() {
+    if (!state.blackbox.plan) {
+      state.blackbox.plan = window.Blackbox.toPlan(state.result, state.params, state.pens[state.penIdx].width);
+    }
+    return state.blackbox.plan;
+  }
+
+  function ensureMachine() {
+    if (!state.blackbox.machine) {
+      var plan = ensurePlan();
+      var m = new window.Blackbox.Machine(plan, { timewarp: state.blackbox.timewarp });
+      m.onUpdate = onMachineUpdate;
+      m.onDone = onMachineDone;
+      state.blackbox.machine = m;
+    }
+    return state.blackbox.machine;
+  }
+
+  function invalidatePlan() {
+    state.blackbox.plan = null;
+    if (state.blackbox.machine) {
+      state.blackbox.machine.abort();
+      state.blackbox.machine = null;
+    }
+  }
+
+  function onMachineUpdate(st) {
+    state.blackbox.telemetry.x = st.x;
+    state.blackbox.telemetry.y = st.y;
+    state.blackbox.telemetry.z = st.z;
+    state.blackbox.telemetry.pen = st.pen ? '▼ unten' : '△ oben';
+    state.blackbox.telemetry.stroke = ((st.stroke != null ? st.stroke + 1 : 0) + '/' + (state.blackbox.plan ? state.blackbox.plan.strokeCount : 0));
+    state.blackbox.telemetry.feed = st.feed;
+    state.blackbox.telemetry.progress = st.progress;
+    renderTelemetry(st);
+    drawPreview();
+  }
+
+  function onMachineDone(st) {
+    state.blackbox.status = 'done';
+    renderTelemetry(st);
+    refresh();
+  }
+
+  function renderTelemetry(st) {
+    setText('m-x', st.x.toFixed(2));
+    setText('m-y', st.y.toFixed(2));
+    setText('m-z', st.z.toFixed(2));
+    setText('m-pen', st.pen ? '▼ unten' : '△ oben');
+    setText('m-stroke', ((st.stroke != null ? st.stroke + 1 : 0) + '/' + (state.blackbox.plan ? state.blackbox.plan.strokeCount : 0)));
+    setText('m-feed', st.feed.toFixed(0));
+    setText('m-progress', (st.progress * 100).toFixed(0) + '%');
+    var bar = document.getElementById('m-bar');
+    if (bar) bar.style.width = (st.progress * 100).toFixed(2) + '%';
+  }
+
+  function setText(id, v) {
+    var el = document.getElementById(id);
+    if (el && el.textContent !== v) el.textContent = v;
+  }
+
+  function machineStart() {
+    if (!state.result || !state.result.strokes.length) return;
+    var m = ensureMachine();
+    if (state.blackbox.serial) {
+      m.streamSerial(state.blackbox.serial);
+    } else {
+      m.start();
+    }
+    state.blackbox.status = 'running';
+    refresh();
+  }
+
+  function machinePause() {
+    var m = state.blackbox.machine;
+    if (!m || m.mode !== 'running') return;
+    m.pause();
+    state.blackbox.status = 'paused';
+    refresh();
+  }
+
+  function machineResume() {
+    var m = state.blackbox.machine;
+    if (!m || m.mode !== 'paused') return;
+    m.resume();
+    state.blackbox.status = 'running';
+    refresh();
+  }
+
+  function machineAbort() {
+    var m = state.blackbox.machine;
+    if (!m) return;
+    m.abort();
+    state.blackbox.status = 'idle';
+    refresh();
+  }
+
+  function machineReset() {
+    if (state.blackbox.machine) { state.blackbox.machine.abort(); state.blackbox.machine = null; }
+    state.blackbox.plan = null;
+    state.blackbox.status = 'idle';
+    refresh();
+  }
+
+  function machineConnect() {
+    state.blackbox.status = 'connecting';
+    refresh();
+    window.Blackbox.connectSerial(115200).then(function (port) {
+      state.blackbox.serial = port;
+      var info = {};
+      try { info = port.getInfo(); } catch (e) {}
+      state.blackbox.serialName = (info.usbVendorId ? 'USB ' + info.usbVendorId.toString(16) + ':' + (info.usbProductId || 0).toString(16) : 'Seriell');
+      state.blackbox.status = 'idle';
+      refresh();
+    }).catch(function (err) {
+      state.blackbox.serial = null;
+      state.blackbox.serialName = null;
+      state.blackbox.status = 'idle';
+      window.alert('Keine Verbindung: ' + (err && err.message ? err.message : err));
+      refresh();
+    });
+  }
+
+  function machineDisconnect() {
+    if (state.blackbox.machine) { state.blackbox.machine.abort(); state.blackbox.machine = null; }
+    if (state.blackbox.serial) { try { state.blackbox.serial.close(); } catch (e) {} }
+    state.blackbox.serial = null;
+    state.blackbox.serialName = null;
+    state.blackbox.plan = null;
+    state.blackbox.status = 'idle';
+    refresh();
+  }
+
+  function onTimewarp(e) {
+    var v = parseFloat(e.target.value);
+    if (isFinite(v) && v > 0) {
+      state.blackbox.timewarp = v;
+      if (state.blackbox.machine) state.blackbox.machine.setTimewarp(v);
+      setText('m-warp', v.toFixed(1) + '×');
+    }
   }
 
   /* --------------------------- Canvas-Vorschau ----------------------------- */
@@ -324,74 +468,190 @@
     canvas.style.cursor = 'grab';
   }
 
-  function drawPreview() {
-    var canvas = document.getElementById('preview');
-    if (!canvas) return;
-    var ctx = canvas.getContext('2d');
+  function previewTransform() {
+    var f = computeFit();
+    state.view.fit = f;
+    var v = state.view;
+    var b = f.b;
+    var scale = f.base * v.zoom;
+    function X(x) { return v.px + (x - b.x0) * scale; }
+    function Y(y) { return v.py + (y - b.y0) * scale; }
+    return { b: b, base: f.base, zoom: v.zoom, scale: scale, X: X, Y: Y, v: v };
+  }
+
+  function segWidthPx(w, scale, pen) {
+    var ww = (w != null && isFinite(w)) ? (w < 0 ? 0 : (w > 1 ? 1 : w)) : 0;
+    return Math.max(0.4, pen.width * scale * (0.55 + 1.0 * ww));
+  }
+
+  function clearStage(ctx) {
     var dpr = window.devicePixelRatio || 1;
-    var cssW = canvas.clientWidth || 900, cssH = canvas.clientHeight || 600;
+    var cssW = ctx.canvas.clientWidth || 900, cssH = ctx.canvas.clientHeight || 600;
     var pw = Math.round(cssW * dpr), ph = Math.round(cssH * dpr);
-    if (canvas.width !== pw || canvas.height !== ph) { canvas.width = pw; canvas.height = ph; }
+    if (ctx.canvas.width !== pw || ctx.canvas.height !== ph) { ctx.canvas.width = pw; ctx.canvas.height = ph; }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssW, cssH);
     ctx.fillStyle = '#f6f3ec';                     /* Stoff-Ton */
     ctx.fillRect(0, 0, cssW, cssH);
+  }
 
-    var f = computeFit();
-    state.view.fit = f;
-    var v = state.view;
-    var res = state.result;
-
-    /* Arbeitsfläche (pageW/pageH) als dezente Linie, falls gesetzt. */
+  function drawPageOutline(ctx, tr) {
     if (state.params.pageW > 0 && state.params.pageH > 0) {
-      var bw = state.params.pageW * f.base * v.zoom;
-      var bh = state.params.pageH * f.base * v.zoom;
       ctx.strokeStyle = '#d8d2c4';
       ctx.lineWidth = 1;
-      ctx.strokeRect(v.px, v.py, bw, bh);
+      ctx.strokeRect(tr.v.px, tr.v.py, state.params.pageW * tr.scale, state.params.pageH * tr.scale);
     }
+  }
 
+  function drawSegFull(ctx, s, k, from, tr, pen) {
+    var t = s.segs[k];
+    ctx.lineWidth = segWidthPx(t.w, tr.scale, pen);
+    ctx.moveTo(tr.X(from[0]), tr.Y(from[1]));
+    if (t.t === 'L') {
+      ctx.lineTo(tr.X(t.x), tr.Y(t.y));
+    } else {
+      var r = Math.hypot(from[0] - t.cx, from[1] - t.cy);
+      var a0 = Math.atan2(from[1] - t.cy, from[0] - t.cx);
+      var a1 = Math.atan2(t.y - t.cy, t.x - t.cx);
+      ctx.arc(tr.X(t.cx), tr.Y(t.cy), r * tr.scale, a0, a1, !t.cw);
+    }
+  }
+
+  function drawSegPartial(ctx, s, k, from, frac, tr, pen) {
+    var t = s.segs[k];
+    ctx.lineWidth = segWidthPx(t.w, tr.scale, pen);
+    ctx.moveTo(tr.X(from[0]), tr.Y(from[1]));
+    if (t.t === 'L') {
+      ctx.lineTo(tr.X(from[0] + (t.x - from[0]) * frac), tr.Y(from[1] + (t.y - from[1]) * frac));
+    } else {
+      var r = Math.hypot(from[0] - t.cx, from[1] - t.cy);
+      var a0 = Math.atan2(from[1] - t.cy, from[0] - t.cx);
+      var a1 = Math.atan2(t.y - t.cy, t.x - t.cx);
+      var a = a0 + window.Blackbox.arcSweep(a0, a1, t.cw) * frac;
+      ctx.arc(tr.X(t.cx), tr.Y(t.cy), r * tr.scale, a0, a, !t.cw);
+    }
+  }
+
+  /* Zeichnet einen Strich bis doneSegs vollständig, optional ein Teil-Segment. */
+  function drawStrokeInk(ctx, s, tr, pen, doneSegs, partialSegIdx, partialFrac) {
+    var from = s.start, k;
+    for (k = 0; k < doneSegs; k++) {
+      ctx.beginPath();
+      drawSegFull(ctx, s, k, from, tr, pen);
+      ctx.stroke();
+      from = [s.segs[k].x, s.segs[k].y];
+    }
+    if (partialSegIdx != null && partialSegIdx >= doneSegs && partialSegIdx < s.segs.length) {
+      ctx.beginPath();
+      drawSegPartial(ctx, s, partialSegIdx, from, partialFrac, tr, pen);
+      ctx.stroke();
+    }
+  }
+
+  function drawPenCursor(ctx, st, tr, pen) {
+    var x = tr.X(st.x), y = tr.Y(st.y);
+    var r = st.pen ? 5 : 4;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    if (st.pen) {
+      ctx.fillStyle = pen.color; ctx.fill();
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+    } else {
+      ctx.fillStyle = '#ffffff'; ctx.fill();
+      ctx.strokeStyle = pen.color; ctx.lineWidth = 2; ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x - r - 5, y); ctx.lineTo(x - r - 1, y);
+    ctx.moveTo(x + r + 1, y); ctx.lineTo(x + r + 5, y);
+    ctx.moveTo(x, y - r - 5); ctx.lineTo(x, y - r - 1);
+    ctx.moveTo(x, y + r + 1); ctx.lineTo(x, y + r + 5);
+    ctx.stroke();
+  }
+
+  function drawStaticPreview() {
+    var canvas = document.getElementById('preview');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    clearStage(ctx);
+    var tr = previewTransform();
+    drawPageOutline(ctx, tr);
+    var res = state.result;
     if (!res || !res.strokes.length) { bindPreview(); return; }
-
-    var b = f.b;
-    var base = f.base, zoom = v.zoom;
-    function X(x) { return v.px + (x - b.x0) * base * zoom; }
-    function Y(y) { return v.py + (y - b.y0) * base * zoom; }
-
     var pen = state.pens[state.penIdx];
     ctx.strokeStyle = pen.color;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    function segWidth(w) {
-      var ww = (w != null && isFinite(w)) ? (w < 0 ? 0 : (w > 1 ? 1 : w)) : 0;
-      return Math.max(0.4, pen.width * base * zoom * (0.55 + 1.0 * ww));
-    }
-
-    var i, s, k, t, cur;
-    for (i = 0; i < res.strokes.length; i++) {
-      s = res.strokes[i];
-      cur = s.start;
-      ctx.beginPath();
-      for (k = 0; k < s.segs.length; k++) {
-        t = s.segs[k];
-        ctx.lineWidth = segWidth(t.w);
-        ctx.moveTo(X(cur[0]), Y(cur[1]));
-        if (t.t === 'L') {
-          ctx.lineTo(X(t.x), Y(t.y));
-        } else {
-          var r = Math.hypot(cur[0] - t.cx, cur[1] - t.cy);
-          var a0 = Math.atan2(cur[1] - t.cy, cur[0] - t.cx);
-          var a1 = Math.atan2(t.y - t.cy, t.x - t.cx);
-          ctx.arc(X(t.cx), Y(t.cy), r * base * zoom, a0, a1, !t.cw);
-        }
-        cur = [t.x, t.y];
-      }
-      ctx.stroke();
+    for (var i = 0; i < res.strokes.length; i++) {
+      drawStrokeInk(ctx, res.strokes[i], tr, pen, res.strokes[i].segs.length, null, 0);
     }
     bindPreview();
   }
 
+  function drawMachinePreview() {
+    var canvas = document.getElementById('preview');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    clearStage(ctx);
+    var tr = previewTransform();
+    drawPageOutline(ctx, tr);
+    var res = state.result;
+    var m = state.blackbox.machine;
+    if (!res || !res.strokes.length) { bindPreview(); return; }
+    var pen = state.pens[state.penIdx];
+    ctx.strokeStyle = pen.color;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    var st = m.state();
+    var curStroke = (st.move && st.move.stroke != null) ? st.move.stroke : Infinity;
+    for (var i = 0; i < res.strokes.length; i++) {
+      if (i > curStroke) break;
+      var s = res.strokes[i];
+      if (i < curStroke) {
+        drawStrokeInk(ctx, s, tr, pen, s.segs.length, null, 0);
+      } else {
+        var kind = st.move.kind;
+        if (kind === 'draw') {
+          drawStrokeInk(ctx, s, tr, pen, st.segIdx != null ? st.segIdx : 0, st.segIdx, st.frac);
+        } else if (kind === 'lift' || kind === 'park') {
+          drawStrokeInk(ctx, s, tr, pen, s.segs.length, null, 0);
+        }
+        /* travel / plunge → noch nichts gezeichnet */
+      }
+    }
+    drawPenCursor(ctx, st, tr, pen);
+    bindPreview();
+  }
+
+  function drawPreview() {
+    var m = state.blackbox && state.blackbox.machine;
+    if (m && (m.mode === 'running' || m.mode === 'paused' || m.mode === 'done')) {
+      drawMachinePreview();
+    } else {
+      drawStaticPreview();
+    }
+  }
+
   /* ------------------------------- Rendering ------------------------------- */
+
+  function machineStatusText() {
+    var bb = state.blackbox;
+    if (bb.status === 'connecting') return '⏳ Suche Seriell-Port …';
+    if (bb.status === 'running') return (bb.serial ? '▶ Zeichnet (CNC)' : '▶ Maschine zeichnet …');
+    if (bb.status === 'paused') return '⏸ Pausiert';
+    if (bb.status === 'done') return '✦ Arte vollendet';
+    return '◌ Maschine bereit · ' + (bb.serial ? bb.serialName : 'Simulation');
+  }
+
+  function statusDotColor() {
+    switch (state.blackbox.status) {
+      case 'running': return '#2ecc71';
+      case 'paused': return '#f39c12';
+      case 'done': return '#9b59b6';
+      case 'connecting': return '#f1c40f';
+      default: return '#95a5a6';
+    }
+  }
 
   function viewProps() {
     return {
@@ -418,7 +678,21 @@
       },
       editorFontSizePx: state.editor.fontSizePx,
       editorLineHeight: state.editor.lineHeight,
-      gcode: state.result ? state.result.gcode : '',
+      machineStatus: machineStatusText(),
+      machineRunning: state.blackbox.status === 'running',
+      machinePaused: state.blackbox.status === 'paused',
+      machineDone: state.blackbox.status === 'done',
+      machineConnecting: state.blackbox.status === 'connecting',
+      machineIdle: state.blackbox.status === 'idle' || state.blackbox.status === 'done' || state.blackbox.status === 'connecting',
+      machineActive: state.blackbox.status === 'running' || state.blackbox.status === 'paused',
+      statusDotStyle: { background: statusDotColor() },
+      serialName: state.blackbox.serialName,
+      serialSupported: state.blackbox.serialSupported,
+      serialConnected: !!state.blackbox.serialName,
+      serialConnectable: !state.blackbox.serialName && state.blackbox.serialSupported,
+      serialUnavailable: !state.blackbox.serialName && !state.blackbox.serialSupported,
+      timewarp: state.blackbox.timewarp,
+      timewarpLabel: state.blackbox.timewarp.toFixed(1) + '×',
       statsLine: state.result ? statsLine(state.result) : '',
       zoomLabel: Math.round(state.view.zoom * 100) + '%',
       onText: onText, loadDemo: loadDemo, clearText: clearText,
@@ -426,7 +700,10 @@
       onEditorFontSize: onEditorNum('fontSizePx'),
       onEditorLineHeight: onEditorNum('lineHeight'),
       onNum: onNum, onNum0: onNum0, onNumS: onNumS, onSelect: onSelect, onToggle: onToggle,
-      download: download,
+      onMachineStart: machineStart, onMachinePause: machinePause, onMachineResume: machineResume,
+      onMachineAbort: machineAbort, onMachineReset: machineReset,
+      onMachineConnect: machineConnect, onMachineDisconnect: machineDisconnect,
+      onTimewarp: onTimewarp,
       zoomIn: function () { var c = document.getElementById('preview'); var r = c ? c.getBoundingClientRect() : { width: 0, height: 0 }; zoomAt(r.width / 2, r.height / 2, 1.6); },
       zoomOut: function () { var c = document.getElementById('preview'); var r = c ? c.getBoundingClientRect() : { width: 0, height: 0 }; zoomAt(r.width / 2, r.height / 2, 1 / 1.6); },
       zoomFit: zoomFit,

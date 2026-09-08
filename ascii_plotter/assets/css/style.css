@@ -131,7 +131,7 @@ body {
 .pane--orbit      { --acc: #d4a24e; --acc-glow: rgba(212,162,78,0.35); }
 .pane--pressure   { --acc: #8a8fce; --acc-glow: rgba(138,143,206,0.35); }
 .pane--labyrinth  { --acc: #c07ac8; --acc-glow: rgba(192,122,200,0.35); }
-.pane--gcode      { --acc: #7ec88a; --acc-glow: rgba(126,200,138,0.3); }
+.pane--blackbox   { --acc: #d678a8; --acc-glow: rgba(214,120,168,0.35); }
 
 .pane-title {
   margin: 0;
@@ -282,6 +282,60 @@ canvas#preview {
 }
 
 .meta { color: var(--dim); font-size: 11px; margin: 2px 0 0; }
+
+/* ---------- Hermetische Maschine (Blackbox) ---------- */
+.machine-status {
+  display: flex; align-items: center; gap: 9px;
+  margin: 8px 0 2px; color: var(--fg); font-size: 12px;
+}
+.status-dot {
+  width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto;
+  animation: statusPulse 2.2s ease-in-out infinite;
+}
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+  50% { opacity: 0.55; box-shadow: 0 0 10px 1px currentColor; }
+}
+
+.telemetry {
+  margin: 10px 0; padding: 8px 10px;
+  border: 1px solid var(--border); background: var(--bg-deep);
+  font-variant-numeric: tabular-nums;
+}
+.trow { display: flex; align-items: baseline; gap: 8px; font-size: 11px; }
+.trow + .trow { margin-top: 6px; }
+.tkey {
+  color: var(--faint); text-transform: uppercase; letter-spacing: 0.8px;
+  font-size: 10px; min-width: 42px;
+}
+.tval { color: var(--acc, var(--fg)); font-size: 12px; margin-right: 12px; }
+
+.progress {
+  position: relative; height: 16px; margin: 10px 0;
+  background: var(--bg-deep); border: 1px solid var(--border); overflow: hidden;
+}
+.progress-fill {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+  background: linear-gradient(90deg, var(--acc-glow), var(--acc));
+  transition: width 0.05s linear;
+}
+.progress-label {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  font-size: 10px; color: var(--fg); font-variant-numeric: tabular-nums;
+}
+
+.timerow { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+.timerow .tkey { min-width: 42px; }
+.warp {
+  flex: 1; height: 4px; padding: 0; accent-color: var(--acc); cursor: pointer;
+}
+.warp-label {
+  min-width: 44px; text-align: right; color: var(--acc);
+  font-size: 12px; font-variant-numeric: tabular-nums;
+}
+
+.serial-name { color: var(--acc); font-size: 11px; }
+.serial-hint { color: var(--faint); font-size: 11px; }
 
 /* ---------- Scrollbars ---------- */
 ::-webkit-scrollbar { width: 10px; height: 10px; }

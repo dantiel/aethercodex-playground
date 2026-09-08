@@ -6,7 +6,7 @@
       %pre.ascii-logo{style: props.asciiStyle}= props.asciiLogo
       %div.brand-text
         %h1 ASCII Art Plotter
-        %p.tagline GCODE-Generator für CNC-Stift auf T-Shirt
+        %p.tagline Hermetische CNC-Maschine — sie zeichnet selbst
     %div.head-meta
       %span.head-stat= props.fontName
       %span.head-stat.head-stat--ghost= props.statsLine
@@ -168,9 +168,51 @@
         %span.corner.c-bl └
         %span.corner.c-br ┘
       %p.meta= props.statsLine
-      %details.pane.pane--gcode{open: true}
-        %summary.pane-title ╭─ GCODE ─╮
+      %details.pane.pane--blackbox{open: true}
+        %summary.pane-title ⬢ ═══ Maschine ═══
         %div.pane-body
+          %div.machine-status
+            %span.status-dot{style: props.statusDotStyle}
+            %span= props.machineStatus
           %div.btnrow
-            %button.btn.btn--emerald{onClick: props.download} [ ⇓ .gcode speichern ]
-          %textarea.gcode{readOnly: true, spellCheck: false, value: props.gcode}
+            - if props.machineIdle
+              %button.btn.btn--emerald{onClick: props.onMachineStart} [ ▶ Zeichnen ]
+            - if props.machinePaused
+              %button.btn.btn--emerald{onClick: props.onMachineResume} [ ▶ Weiter ]
+            - if props.machineRunning
+              %button.btn.btn--ghost{onClick: props.onMachinePause} [ ⏸ Pause ]
+            - if props.machineActive
+              %button.btn.btn--ghost{onClick: props.onMachineAbort} [ ⏹ Abbruch ]
+            - if props.machineIdle
+              %button.btn.btn--ghost{onClick: props.onMachineReset} [ ↺ Reset ]
+          %div.telemetry
+            %div.trow
+              %span.tkey X
+              %span#m-x.tval= '0.00'
+              %span.tkey Y
+              %span#m-y.tval= '0.00'
+              %span.tkey Z
+              %span#m-z.tval= '0.00'
+            %div.trow
+              %span.tkey Stift
+              %span#m-pen.tval= '△ oben'
+              %span.tkey Strich
+              %span#m-stroke.tval= '0/0'
+              %span.tkey Feed
+              %span#m-feed.tval= '0'
+          %div.progress
+            %div.progress-fill#m-bar
+            %span#m-progress.progress-label= '0%'
+          %div.timerow
+            %span.tkey Tempo
+            %input.warp{type: 'range', min: '0.1', max: '20', step: '0.1', value: props.timewarp, onInput: props.onTimewarp}
+            %span#m-warp.warp-label= props.timewarpLabel
+          %div.btnrow
+            - if props.serialConnected
+              %button.btn.btn--ghost{onClick: props.onMachineDisconnect} [ ⇌ Trennen ]
+              %span.serial-name= props.serialName
+            - if props.serialConnectable
+              %button.btn.btn--ghost{onClick: props.onMachineConnect} [ ⇌ Seriell verbinden ]
+            - if props.serialUnavailable
+              %span.serial-hint WebSerial nicht verfügbar — Simulation
+          %p.hint GCODE ist intern. Die Maschine zeichnet selbst — kein Export, kein Code. Nur Arte.
