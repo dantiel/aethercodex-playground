@@ -49,11 +49,17 @@
                 - for pen, i in props.pens
                   %option{value: i}= pen.name
             %label
+              %span Stiftfarbe (Ink)
+              %input{type: 'color', value: props.inkColor, onInput: props.onInk}
+            %label
+              %span Stoff (Papier)
+              %input{type: 'color', value: props.paperColor, onInput: props.onPaper}
+            %label
               %span Eigene TTF/OTF
               %label.filebtn
                 %span [ ⇪ TTF/OTF laden ]
                 %input.file{type: 'file', accept: '.ttf,.otf', onChange: props.onFont}
-          %p.hint Monospace-Fonts (⊞) halten die Rasterausrichtung; Proportional-Fonts (♒) erzeugen echte Haar-/Balkenkontraste. Serifen werden als Mittelachse extrahiert — Breite steuert Z-Druck + Feed.
+          %p.hint Monospace-Fonts (⊞) halten die Rasterausrichtung; Proportional-Fonts (♒) erzeugen echte Haar-/Balkenkontraste. Serifen werden als Mittelachse extrahiert — Breite steuert Z-Druck + Feed. Stiftfarbe (Ink) färbt das UI mit, Stoff (Papier) legt sich unter Editor & Vorschau.
 
       %details.pane.pane--blueprint
         %summary.pane-title 3 · Maße & Layout

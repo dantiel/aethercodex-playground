@@ -43,6 +43,43 @@
     '  A R T E   ·   C N C   ·   S T I F T',
   ]);
 
+  /* Farb-Theming: Stiftfarbe (Ink) & Stoff (Papier) infizieren UI + Vorschau. */
+  function hexToRgb(h) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(String(h).trim());
+    if (!m) return [32, 32, 31];
+    var n = parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function rgbStr(rgb, a) {
+    return 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + a + ')';
+  }
+  function luminance(rgb) {
+    return (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255;
+  }
+  function mixHex(a, b, t) {
+    var A = hexToRgb(a), B = hexToRgb(b);
+    return 'rgb(' +
+      Math.round(A[0] + (B[0] - A[0]) * t) + ',' +
+      Math.round(A[1] + (B[1] - A[1]) * t) + ',' +
+      Math.round(A[2] + (B[2] - A[2]) * t) + ')';
+  }
+  function ensureVisible(hex, minLum) {
+    var rgb = hexToRgb(hex);
+    var lum = luminance(rgb);
+    if (lum < minLum) {
+      var t = (minLum - lum) / (1 - lum);
+      rgb = [
+        Math.round(rgb[0] + (255 - rgb[0]) * t),
+        Math.round(rgb[1] + (255 - rgb[1]) * t),
+        Math.round(rgb[2] + (255 - rgb[2]) * t),
+      ];
+    }
+    return rgb;
+  }
+  function contrastText(hex) {
+    return luminance(hexToRgb(hex)) > 0.6 ? '#14141e' : '#f5f5f5';
+  }
+
   function base64ToBytes(b64) {
     var bin = atob(b64);
     var bytes = new Uint8Array(bin.length);
@@ -85,6 +122,7 @@
       { name: 'Fett 1.2 mm (blau)', width: 1.2, color: '#1f4e9c' },
     ],
     penIdx: 0,
+    paper: '#f6f3ec',
     params: {
       /* Maße & Layout */
       cellW: 6, cellH: 8, letterSpacing: 0, lineSpacing: 0,
@@ -155,9 +193,18 @@
     rebuild();
     refresh();
   }
-  function onDemoSelect(e) {
-    state.demoIdx = parseInt(e.target.value, 10) || 0;
-    loadDemo();
+  function onPen(e) {
+    var idx = parseInt(e.target.value, 10);
+    if (isFinite(idx) && state.pens[idx]) { state.penIdx = idx; rebuild(); refresh(); }
+  }
+
+  function onInk(e) {
+    var v = e.target.value;
+    if (v && /^#[0-9a-f]{6}$/i.test(v)) { state.pens[state.penIdx].color = v; refresh(); }
+  }
+  function onPaper(e) {
+    var v = e.target.value;
+    if (v && /^#[0-9a-f]{6}$/i.test(v)) { state.paper = v; refresh(); }
   }
   function clearText() { state.text = ''; rebuild(); refresh(); }
   function applyFont(font, key, family, mono) {
@@ -497,13 +544,13 @@
     if (ctx.canvas.width !== pw || ctx.canvas.height !== ph) { ctx.canvas.width = pw; ctx.canvas.height = ph; }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssW, cssH);
-    ctx.fillStyle = '#f6f3ec';                     /* Stoff-Ton */
+    ctx.fillStyle = state.paper;                   /* Stoff-Ton (wählbar) */
     ctx.fillRect(0, 0, cssW, cssH);
   }
 
   function drawPageOutline(ctx, tr) {
     if (state.params.pageW > 0 && state.params.pageH > 0) {
-      ctx.strokeStyle = '#d8d2c4';
+      ctx.strokeStyle = mixHex(state.paper, '#000000', 0.18);
       ctx.lineWidth = 1;
       ctx.strokeRect(tr.v.px, tr.v.py, state.params.pageW * tr.scale, state.params.pageH * tr.scale);
     }
@@ -681,6 +728,9 @@
         fontFamily: state.fontFamily,
         fontSize: state.editor.fontSizePx + 'px',
         lineHeight: state.editor.lineHeight,
+        color: state.pens[state.penIdx].color,
+        caretColor: state.pens[state.penIdx].color,
+        background: state.paper,
       },
       editorFontSizePx: state.editor.fontSizePx,
       editorLineHeight: state.editor.lineHeight,
@@ -705,6 +755,9 @@
       demos: DEMOS.map(function (d) { return d.name; }),
       demoIdx: state.demoIdx,
       onFontSelect: onFontSelect, onFont: onFont, onPen: onPen,
+      inkColor: state.pens[state.penIdx].color,
+      paperColor: state.paper,
+      onInk: onInk, onPaper: onPaper,
       onEditorFontSize: onEditorNum('fontSizePx'),
       onEditorLineHeight: onEditorNum('lineHeight'),
       onNum: onNum, onNum0: onNum0, onNumS: onNumS, onSelect: onSelect, onToggle: onToggle,
@@ -718,7 +771,20 @@
     };
   }
 
+  function applyTheme() {
+    var ink = state.pens[state.penIdx].color;
+    var bright = ensureVisible(ink, 0.5);
+    var root = document.documentElement;
+    root.style.setProperty('--ink', ink);
+    root.style.setProperty('--ink-bright', 'rgb(' + bright[0] + ',' + bright[1] + ',' + bright[2] + ')');
+    root.style.setProperty('--ink-bright-glow', rgbStr(bright, 0.4));
+    root.style.setProperty('--ink-contrast', contrastText(ink));
+    root.style.setProperty('--paper', state.paper);
+    root.style.setProperty('--paper-glow', rgbStr(hexToRgb(state.paper), 0.16));
+  }
+
   function refresh() {
+    applyTheme();
     var root = document.getElementById('root');
     ReactDOM.render(React.createElement(window.CoffeeHamlApp, viewProps()), root);
     drawPreview();
