@@ -16,6 +16,11 @@
       %section.pane.pane--manuscript
         %h2.pane-title 1 · ASCII-Art
         %textarea.editor{spellCheck: false, placeholder: 'Dein ASCII-Motiv…', value: props.text, onInput: props.onText, style: props.editorStyle}
+        %div.field
+          %span.label Demo:
+          %select{value: props.demoIdx, onChange: props.onDemoSelect}
+            - for name, i in props.demos
+              %option{value: i}= name
         %div.btnrow
           %button.btn.btn--emerald{onClick: props.loadDemo} [ ✦ Demo laden ]
           %button.btn.btn--ghost{onClick: props.clearText} [ Leeren ]

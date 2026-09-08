@@ -6,13 +6,9 @@
 (function () {
   'use strict';
 
-  var DEMO_TEXT = [
-    ' _   _      _ _        __        __         _     _ ',
-    '| | | | ___| | | ___   \\ \\      / /___  _ __| | __| |',
-    '| |_| |/ _ \\ | |/ _ \\   \\ \\ /\\ / / _ \\| \'__| |/ _` |',
-    '|  _  |  __/ | | (_) |   \\ V  V / (_) | |  | | (_| |',
-    '|_| |_|\\___|_|_|\\___/     \\_/\\_/ \\___/|_|  |_|\\__,_|',
-  ].join('\n');
+  /* Demos (assets/js/demos.js → window.PlotterDemos). */
+  var DEMOS = (window.PlotterDemos || []).slice();
+  var DEMO_TEXT = DEMOS.length ? DEMOS[0].text : '';
 
   var builtinFont = window.StrokeFont.builtin();
 
@@ -75,6 +71,7 @@
 
   var state = {
     text: DEMO_TEXT,
+    demoIdx: 0,
     font: builtinFont,
     fontKey: 'builtin',
     fontFamily: MONO_STACK,
@@ -152,7 +149,16 @@
       refresh();
     }, 120);
   }
-  function loadDemo() { state.text = DEMO_TEXT; rebuild(); refresh(); }
+  function loadDemo() {
+    var d = DEMOS[state.demoIdx] || DEMOS[0];
+    state.text = d ? d.text : '';
+    rebuild();
+    refresh();
+  }
+  function onDemoSelect(e) {
+    state.demoIdx = parseInt(e.target.value, 10) || 0;
+    loadDemo();
+  }
   function clearText() { state.text = ''; rebuild(); refresh(); }
   function applyFont(font, key, family, mono) {
     state.font = font;
@@ -695,7 +701,9 @@
       timewarpLabel: state.blackbox.timewarp.toFixed(1) + '×',
       statsLine: state.result ? statsLine(state.result) : '',
       zoomLabel: Math.round(state.view.zoom * 100) + '%',
-      onText: onText, loadDemo: loadDemo, clearText: clearText,
+      onText: onText, loadDemo: loadDemo, onDemoSelect: onDemoSelect, clearText: clearText,
+      demos: DEMOS.map(function (d) { return d.name; }),
+      demoIdx: state.demoIdx,
       onFontSelect: onFontSelect, onFont: onFont, onPen: onPen,
       onEditorFontSize: onEditorNum('fontSizePx'),
       onEditorLineHeight: onEditorNum('lineHeight'),
