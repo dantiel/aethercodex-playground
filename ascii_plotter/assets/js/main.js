@@ -193,6 +193,10 @@
     rebuild();
     refresh();
   }
+  function onDemoSelect(e) {
+    var idx = parseInt(e.target.value, 10);
+    if (isFinite(idx) && DEMOS[idx]) { state.demoIdx = idx; loadDemo(); }
+  }
   function onPen(e) {
     var idx = parseInt(e.target.value, 10);
     if (isFinite(idx) && state.pens[idx]) { state.penIdx = idx; rebuild(); refresh(); }

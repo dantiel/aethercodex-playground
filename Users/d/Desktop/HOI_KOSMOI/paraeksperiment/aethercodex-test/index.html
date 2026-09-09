@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AetherCodex Playground</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0a0a1a; color:#c8d6e5; font-family:system-ui,sans-serif; min-height:100vh; }
+  .stars { position:fixed; inset:0; pointer-events:none; }
+  .star { position:absolute; background:#fff; border-radius:50%; animation:twinkle 2s infinite alternate; }
+  @keyframes twinkle { 0%{opacity:0.3} 100%{opacity:1} }
+  main { position:relative; max-width:900px; margin:0 auto; padding:3rem 1.5rem; }
+  h1 { font-size:2.8rem; text-align:center; background:linear-gradient(135deg,#00d2ff,#7b2ff7,#ff6b6b); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:0.5rem; }
+  .subtitle { text-align:center; color:#8395a7; font-size:1.1rem; margin-bottom:3rem; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:1.5rem; }
+  .card { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:1.5rem; transition:transform 0.2s,border-color 0.2s; display:block; text-decoration:none; color:inherit; }
+  .card:hover { transform:translateY(-4px); border-color:rgba(123,47,247,0.4); }
+  .card h2 { font-size:1.3rem; margin-bottom:0.4rem; color:#feca57; }
+  .card .desc { font-size:0.9rem; color:#8395a7; line-height:1.5; }
+  .card .tag { display:inline-block; font-size:0.7rem; padding:2px 8px; border-radius:10px; margin-top:0.8rem; margin-right:0.3rem; background:rgba(123,47,247,0.2); color:#a29bfe; }
+  footer { text-align:center; margin-top:3rem; color:#576574; font-size:0.85rem; }
+  footer a { color:#7b2ff7; }
+</style>
+</head>
+<body>
+<div class="stars" id="stars"></div>
+<main>
+  <h1>🌊 AetherCodex Playground</h1>
+  <p class="subtitle">Interactive experiments in code, games, and the arcane</p>
+  <div class="grid">
+    <a class="card" href="submarine_game.html">
+      <h2>🌊 Submarine — Tiefsee</h2>
+      <p class="desc">2.5D U-Boot. Schätze jagen, Monster bekämpfen, Waffen upgraden. Greifer, Bomben, Schock- & Giftpfeile.</p>
+      <span class="tag">Three.js</span><span class="tag">Action</span>
+    </a>
+    <a class="card" href="rocket_car.html">
+      <h2>🚀 Rocket Car</h2>
+      <p class="desc">Raketenauto mit Physik. Weite Sprünge, Stunts, Highscore-Jagd.</p>
+      <span class="tag">Canvas</span><span class="tag">Physics</span>
+    </a>
+    <a class="card" href="organic_snake.html">
+      <h2>🐍 Organic Snake</h2>
+      <p class="desc">Snake mit fließenden Kurven, Partikelschweif und kontinuierlichem Universum.</p>
+      <span class="tag">Canvas</span><span class="tag">Particles</span>
+    </a>
+    <a class="card" href="fractal_llama_fixed.html">
+      <h2>🦙 Fractal Llama Climber</h2>
+      <p class="desc">Lama klettert prozedurale Fraktal-Berge. Sierpinski, Perlin, Mandelbrot.</p>
+      <span class="tag">Canvas</span><span class="tag">Fractal</span>
+    </a>
+    <a class="card" href="solar_system_3d.html">
+      <h2>🪐 Solar System 3D</h2>
+      <p class="desc">Interaktives Sonnensystem mit Planeten, Monden und Ringen.</p>
+      <span class="tag">Three.js</span>
+    </a>
+    <a class="card" href="blackhole_real_lensing.html">
+      <h2>🌀 Black Hole Lensing</h2>
+      <p class="desc">Echtzeit-Gravitationslinseneffekt. Licht um ein schwarzes Loch gebogen.</p>
+      <span class="tag">WebGL</span><span class="tag">Physics</span>
+    </a>
+    <a class="card" href="quantum_noodles.html">
+      <h2>🍜 Quantum Noodles</h2>
+      <p class="desc">Quantenphysik-Nudeln. Wellenfunktionen, Superposition, Verschränkung als Spiel.</p>
+      <span class="tag">Canvas</span><span class="tag">Quantum</span>
+    </a>
+    <a class="card" href="quantum_hermetic_engine.html">
+      <h2>⚛️ Quantum Hermetic Engine</h2>
+      <p class="desc">Hermetisches Prinzip als Quanten-Simulation. Korrespondenz, Mentalismus, Rhythmus.</p>
+      <span class="tag">Canvas</span><span class="tag">Hermetic</span>
+    </a>
+  </div>
+  <footer>
+    <p>Summoned by <a href="https://github.com/dantiel/aethercodex-playground">ÆtherCodex</a> · GitHub Pages</p>
+  </footer>
+</main>
+<script>
+// Starfield
+const c=document.getElementById('stars');
+for(let i=0;i<80;i++){
+  const s=document.createElement('div');
+  s.className='star';
+  s.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;width:${1+Math.random()*2}px;height:${1+Math.random()*2}px;animation-delay:${Math.random()*2}s;animation-duration:${1+Math.random()*2}s`;
+  c.appendChild(s);
+}
+</script>
+</body>
+</html>
