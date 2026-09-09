@@ -175,7 +175,12 @@ textarea.editor, textarea.gcode {
   resize: vertical;
   font-variant-ligatures: none;
 }
-textarea.editor { height: 210px; white-space: pre; }
+textarea.editor {
+  height: 210px; white-space: pre;
+  background: var(--paper);
+  color: var(--ink);
+  caret-color: var(--ink);
+}
 textarea.editor::placeholder { color: rgba(128,128,128,0.6); }
 textarea.editor:focus, textarea.gcode:focus,
 input:focus, select:focus {
