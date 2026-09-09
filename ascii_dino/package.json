@@ -1,0 +1,12 @@
+{
+  "name": "ascii-dino",
+  "version": "1.0.0",
+  "description": "Assetless ASCII dinosaur side-runner — CoffeeScript core, dual output streams (ANSI terminal + browser canvas).",
+  "scripts": {
+    "build": "node build.mjs",
+    "play": "node dist/terminal.js",
+    "web": "open index.html",
+    "test": "node tools/smoke.mjs"
+  },
+  "license": "MIT"
+}
