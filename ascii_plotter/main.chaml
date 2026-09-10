@@ -52,14 +52,14 @@
               %span Stiftfarbe (Ink)
               %input{type: 'color', value: props.inkColor, onInput: props.onInk}
             %label
-              %span Stoff (Papier)
+              %span T-Shirt (Hintergrund)
               %input{type: 'color', value: props.paperColor, onInput: props.onPaper}
             %label
               %span Eigene TTF/OTF
               %label.filebtn
                 %span [ ⇪ TTF/OTF laden ]
                 %input.file{type: 'file', accept: '.ttf,.otf', onChange: props.onFont}
-          %p.hint Monospace-Fonts (⊞) halten die Rasterausrichtung; Proportional-Fonts (♒) erzeugen echte Haar-/Balkenkontraste. Serifen werden als Mittelachse extrahiert — Breite steuert Z-Druck + Feed. Stiftfarbe (Ink) färbt das UI mit, Stoff (Papier) legt sich unter Editor & Vorschau.
+          %p.hint Monospace-Fonts (⊞) halten die Rasterausrichtung; Proportional-Fonts (♒) erzeugen echte Haar-/Balkenkontraste. Serifen werden als Mittelachse extrahiert — Breite steuert Z-Druck + Feed. Stiftfarbe (Ink) kritzelt Akzente, Logo & Striche; die T-Shirt-Farbe ist der gesamte UI-Hintergrund (Editor, Vorschau & Panes) und bleibt auf hellem wie dunklem Stoff lesbar.
 
       %details.pane.pane--blueprint
         %summary.pane-title 3 · Maße & Layout

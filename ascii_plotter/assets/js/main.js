@@ -63,18 +63,31 @@
       Math.round(A[1] + (B[1] - A[1]) * t) + ',' +
       Math.round(A[2] + (B[2] - A[2]) * t) + ')';
   }
-  function ensureVisible(hex, minLum) {
+  /* Hellt dunkle Tinten bis zu einer Mindest-Luminanz auf (dunkles UI),
+     dunkelt aber helle Tinten NIE ab. */
+  function liftLum(hex, minLum) {
     var rgb = hexToRgb(hex);
     var lum = luminance(rgb);
-    if (lum < minLum) {
-      var t = (minLum - lum) / (1 - lum);
-      rgb = [
-        Math.round(rgb[0] + (255 - rgb[0]) * t),
-        Math.round(rgb[1] + (255 - rgb[1]) * t),
-        Math.round(rgb[2] + (255 - rgb[2]) * t),
-      ];
-    }
-    return rgb;
+    if (lum >= minLum) return rgb;
+    var f = (minLum - lum) / (1 - lum);
+    return [
+      Math.round(rgb[0] + (255 - rgb[0]) * f),
+      Math.round(rgb[1] + (255 - rgb[1]) * f),
+      Math.round(rgb[2] + (255 - rgb[2]) * f),
+    ];
+  }
+  /* Dunkelt helle Tinten bis zu einer Maximal-Luminanz ab (helles UI),
+     hellt aber dunkle Tinten NIE auf. */
+  function sinkLum(hex, maxLum) {
+    var rgb = hexToRgb(hex);
+    var lum = luminance(rgb);
+    if (lum <= maxLum) return rgb;
+    var d = (lum - maxLum) / lum;
+    return [
+      Math.round(rgb[0] * (1 - d)),
+      Math.round(rgb[1] * (1 - d)),
+      Math.round(rgb[2] * (1 - d)),
+    ];
   }
   function contrastText(hex) {
     return luminance(hexToRgb(hex)) > 0.6 ? '#14141e' : '#f5f5f5';
@@ -772,16 +785,33 @@
     };
   }
 
+  /* Das T-Shirt (Papier) IST der UI-Hintergrund. Alle neutralen Flächen
+     (Panes, Eingaben, Rahmen, Text) werden aus der Stoff-Luminanz abgeleitet,
+     damit die Maschine auf hellem wie dunklem Grund lesbar bleibt. */
   function applyTheme() {
     var ink = state.pens[state.penIdx].color;
-    var bright = ensureVisible(ink, 0.5);
+    var paper = state.paper;
+    var isLight = luminance(hexToRgb(paper)) > 0.55;
+    var fg = isLight ? '#1b1b24' : '#ececf4';
+    var bright = isLight ? sinkLum(ink, 0.35) : liftLum(ink, 0.52);
     var root = document.documentElement;
+    root.classList.toggle('light', isLight);
     root.style.setProperty('--ink', ink);
     root.style.setProperty('--ink-bright', 'rgb(' + bright[0] + ',' + bright[1] + ',' + bright[2] + ')');
     root.style.setProperty('--ink-bright-glow', rgbStr(bright, 0.4));
     root.style.setProperty('--ink-contrast', contrastText(ink));
-    root.style.setProperty('--paper', state.paper);
-    root.style.setProperty('--paper-glow', rgbStr(hexToRgb(state.paper), 0.16));
+    root.style.setProperty('--paper', paper);
+    root.style.setProperty('--bg', paper);
+    root.style.setProperty('--bg-deep', mixHex(paper, '#000000', isLight ? 0.05 : 0.35));
+    root.style.setProperty('--pane', mixHex(paper, '#ffffff', isLight ? 0.55 : 0.07));
+    root.style.setProperty('--pane-hi', mixHex(paper, '#ffffff', isLight ? 0.85 : 0.13));
+    root.style.setProperty('--border', mixHex(paper, fg, 0.24));
+    root.style.setProperty('--border-hi', mixHex(paper, fg, 0.44));
+    root.style.setProperty('--fg', fg);
+    root.style.setProperty('--dim', mixHex(paper, fg, 0.58));
+    root.style.setProperty('--faint', mixHex(paper, fg, 0.36));
+    root.style.setProperty('--paper-glow', rgbStr(hexToRgb(mixHex(paper, fg, isLight ? 0.06 : 0.14)), isLight ? 0.4 : 0.16));
+    root.style.setProperty('--shadow', isLight ? '0 10px 30px rgba(0,0,0,0.14)' : '0 10px 30px rgba(0,0,0,0.35)');
   }
 
   function refresh() {
